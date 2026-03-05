@@ -16,6 +16,10 @@ func (rc *RadosConn) RbdResize(ctx context.Context, imageSpec ImageSpec, sizeByt
 }
 
 func RbdResize(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec, sizeBytes uint64) error {
+	if !imageSpec.Valid() {
+		return errInvalidImageSpec
+	}
+
 	poolName := imageSpec.Pool()
 	imageName := imageSpec.Image()
 	namespaceName := imageSpec.Namespace()

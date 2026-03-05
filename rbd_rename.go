@@ -16,6 +16,14 @@ func (rc *RadosConn) RbdRename(ctx context.Context, srcImageSpec ImageSpec, dstI
 }
 
 func RbdRename(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec) error {
+	if !srcImageSpec.Valid() || !dstImageSpec.Valid() {
+		return errInvalidImageSpec
+	}
+
+	if srcImageSpec.Equal(dstImageSpec) {
+		return nil
+	}
+
 	srcPoolName := srcImageSpec.Pool()
 	srcImageName := srcImageSpec.Image()
 	srcNamespaceName := srcImageSpec.Namespace()
@@ -23,20 +31,12 @@ func RbdRename(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, ds
 	dstImageName := dstImageSpec.Image()
 	dstNamespaceName := dstImageSpec.Namespace()
 
-	if srcImageName == "" || dstImageName == "" {
-		return fmt.Errorf("source or destination image name is empty")
-	}
-
 	if srcPoolName != dstPoolName {
 		return fmt.Errorf("source pool (%s) and destination pool (%s) are different", srcPoolName, dstPoolName)
 	}
 
 	if srcNamespaceName != dstNamespaceName {
 		return fmt.Errorf("source namespace (%s) and destination namespace (%s) are different", srcNamespaceName, dstNamespaceName)
-	}
-
-	if srcImageName == dstImageName {
-		return nil
 	}
 
 	ioctx, err := conn.OpenIOContext(srcPoolName)

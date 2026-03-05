@@ -16,6 +16,14 @@ func (rc *RadosConn) RbdClone(ctx context.Context, srcSnapSpec SnapSpec, dstImag
 }
 
 func RbdClone(ctx context.Context, conn *rados.Conn, srcSnapSpec SnapSpec, dstImageSpec ImageSpec) error {
+	if !srcSnapSpec.Valid() {
+		return errInvalidSnapSpec
+	}
+
+	if !dstImageSpec.Valid() {
+		return errInvalidImageSpec
+	}
+
 	srcPoolName := srcSnapSpec.Pool()
 	srcImageName := srcSnapSpec.Image()
 	srcNamespaceName := srcSnapSpec.Namespace()
@@ -25,20 +33,12 @@ func RbdClone(ctx context.Context, conn *rados.Conn, srcSnapSpec SnapSpec, dstIm
 	dstImageName := dstImageSpec.Image()
 	dstNamespaceName := dstImageSpec.Namespace()
 
-	if srcSnapName == "" || srcImageName == "" || dstImageName == "" {
-		return fmt.Errorf("source snapshot or image or destination image name is empty")
-	}
-
 	if srcPoolName != dstPoolName {
 		return fmt.Errorf("source pool (%s) and destination pool (%s) are different", srcPoolName, dstPoolName)
 	}
 
 	if srcNamespaceName != dstNamespaceName {
 		return fmt.Errorf("source namespace (%s) and destination namespace (%s) are different", srcNamespaceName, dstNamespaceName)
-	}
-
-	if srcSnapName == dstImageName {
-		return fmt.Errorf("source snapshot name (%s) and destination image name (%s) are the same", srcSnapName, dstImageName)
 	}
 
 	srcIOCtx, err := conn.OpenIOContext(srcPoolName)

@@ -16,6 +16,10 @@ func (rc *RadosConn) RbdRemove(ctx context.Context, imageSpec ImageSpec) error {
 }
 
 func RbdRemove(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) error {
+	if !imageSpec.Valid() {
+		return errInvalidImageSpec
+	}
+
 	poolName := imageSpec.Pool()
 	imageName := imageSpec.Image()
 	namespaceName := imageSpec.Namespace()

@@ -2,27 +2,30 @@ package ceph
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/ceph/go-ceph/rados"
 	"github.com/ceph/go-ceph/rbd"
 )
 
-func snapExist(ioctx *rados.IOContext, imageName, snapName string) (bool, error) {
-	image, err := rbd.OpenImage(ioctx, imageName, snapName)
-	if err != nil {
-		if errors.Is(err, rbd.ErrNotFound) {
-			return false, nil
+func (rc *RadosConn) RbdSnapExist(ctx context.Context, snapSpec SnapSpec) (bool, error) {
+	var exist bool = false
+	err := rc.Do(ctx, func() error {
+		_exist, err := RbdSnapExist(ctx, rc.conn, snapSpec)
+		if err != nil {
+			return err
 		}
-		return false, fmt.Errorf("failed to open image %s: %w", imageName, err)
-	}
-	defer image.Close()
-
-	return true, nil
+		exist = _exist
+		return nil
+	})
+	return exist, err
 }
 
-func SnapshotExists(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (bool, error) {
+func RbdSnapExist(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (bool, error) {
+	if !snapSpec.Valid() {
+		return false, errInvalidSnapSpec
+	}
+
 	poolName := snapSpec.Pool()
 	namespaceName := snapSpec.Namespace()
 	imageName := snapSpec.Image()
@@ -36,7 +39,16 @@ func SnapshotExists(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (b
 
 	ioctx.SetNamespace(namespaceName)
 
-	return snapExist(ioctx, imageName, snapName)
+	image, err := rbd.OpenImage(ioctx, imageName, snapName)
+	if err != nil {
+		if isErrNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to open image %s: %w", imageName, err)
+	}
+	defer image.Close()
+
+	return true, nil
 }
 
 func (rc *RadosConn) RbdSnapCreate(ctx context.Context, snapSpec SnapSpec) error {
@@ -47,6 +59,10 @@ func (rc *RadosConn) RbdSnapCreate(ctx context.Context, snapSpec SnapSpec) error
 }
 
 func RbdSnapCreate(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) error {
+	if !snapSpec.Valid() {
+		return errInvalidSnapSpec
+	}
+
 	poolName := snapSpec.Pool()
 	imageName := snapSpec.Image()
 	namespaceName := snapSpec.Namespace()
@@ -87,6 +103,10 @@ func (rc *RadosConn) RbdSnapRemove(ctx context.Context, snapSpec SnapSpec) error
 }
 
 func RbdSnapRemove(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) error {
+	if !snapSpec.Valid() {
+		return errInvalidSnapSpec
+	}
+
 	poolName := snapSpec.Pool()
 	imageName := snapSpec.Image()
 	namespaceName := snapSpec.Namespace()

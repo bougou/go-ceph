@@ -16,20 +16,20 @@ func (rc *RadosConn) RbdCopy(ctx context.Context, srcImageSpec ImageSpec, dstIma
 }
 
 func RbdCopy(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec) error {
+	if !srcImageSpec.Valid() || !dstImageSpec.Valid() {
+		return errInvalidImageSpec
+	}
+
+	if srcImageSpec.Equal(dstImageSpec) {
+		return fmt.Errorf("source and destination image spec are the same")
+	}
+
 	srcPoolName := srcImageSpec.Pool()
 	srcImageName := srcImageSpec.Image()
 	srcNamespaceName := srcImageSpec.Namespace()
 	dstPoolName := dstImageSpec.Pool()
 	dstImageName := dstImageSpec.Image()
 	dstNamespaceName := dstImageSpec.Namespace()
-
-	if srcImageName == "" || dstImageName == "" {
-		return fmt.Errorf("source or destination image name is empty")
-	}
-
-	if srcImageName == dstImageName {
-		return fmt.Errorf("source and destination image name are the same")
-	}
 
 	srcIOCtx, err := conn.OpenIOContext(srcPoolName)
 	if err != nil {
@@ -39,33 +39,45 @@ func RbdCopy(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstI
 
 	srcIOCtx.SetNamespace(srcNamespaceName)
 
-	srcImage, err := rbd.OpenImage(srcIOCtx, srcImageName, "")
+	srcImage, err := rbd.OpenImage(srcIOCtx, srcImageName, rbd.NoSnapshot)
 	if err != nil {
 		return fmt.Errorf("failed to open source image (%s): %w", srcImageName, err)
 	}
 	defer srcImage.Close()
 
 	tempSnapName := fmt.Sprintf("%s__temp_for_copy__", dstImageName)
-	tempSnapSpec := SnapSpec(fmt.Sprintf("%s@%s", srcImageName, tempSnapName))
 
-	snapExists, err := snapExist(srcIOCtx, srcImageName, tempSnapName)
+	var tempSnap *rbd.Snapshot = nil
+
+	// Snapshot existence is checked via image snapshot ID lookup.
+	if _, err := srcImage.GetSnapID(tempSnapName); err != nil {
+		if isErrNotFound(err) {
+			tempSnap, err = srcImage.CreateSnapshot(tempSnapName)
+			if err != nil {
+				return fmt.Errorf("failed to create snapshot (%s): %w", tempSnapName, err)
+			}
+		} else {
+			return fmt.Errorf("failed to query snapshot (%s): %w", tempSnapName, err)
+		}
+	} else {
+		tempSnap = srcImage.GetSnapshot(tempSnapName)
+	}
+
+	isProtected, err := tempSnap.IsProtected()
 	if err != nil {
-		return fmt.Errorf("failed to check if snapshot (%s) exists: %w", tempSnapSpec, err)
+		return fmt.Errorf("failed to check protection for snapshot (%s): %w", tempSnapName, err)
 	}
-	if snapExists {
-		return fmt.Errorf("snapshot (%s) already exists", tempSnapSpec)
-	}
-
-	srcSnap, err := srcImage.CreateSnapshot(tempSnapName)
-	if err != nil {
-		return fmt.Errorf("failed to create snapshot (%s): %w", tempSnapName, err)
+	if !isProtected {
+		if err := tempSnap.Protect(); err != nil {
+			return fmt.Errorf("failed to protect snapshot (%s): %w", tempSnapName, err)
+		}
 	}
 
-	if err := srcSnap.Protect(); err != nil {
-		srcSnap.Unprotect()
-		srcSnap.Remove()
-		return fmt.Errorf("failed to protect snapshot (%s): %w", tempSnapName, err)
-	}
+	defer func() {
+		// remove the temporary snapshot
+		tempSnap.Unprotect()
+		tempSnap.Remove()
+	}()
 
 	dstIOCtx, err := conn.OpenIOContext(dstPoolName)
 	if err != nil {
@@ -78,7 +90,20 @@ func RbdCopy(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstI
 	opts := rbd.NewRbdImageOptions()
 	opts.SetUint64(rbd.ImageOption(rbd.ImageOptionFeatures), DefaultImageFeatures)
 	opts.SetUint64(rbd.ImageOption(rbd.ImageOptionOrder), DefaultImageOrder)
-	rbd.CloneFromImage(srcImage, tempSnapName, dstIOCtx, dstImageName, opts)
+	if err := rbd.CloneFromImage(srcImage, tempSnapName, dstIOCtx, dstImageName, opts); err != nil {
+		return fmt.Errorf("failed to clone destination image (%s) from snapshot (%s): %w", dstImageName, tempSnapName, err)
+	}
+
+	// flatten the destination image
+	dstImage, err := rbd.OpenImage(dstIOCtx, dstImageName, "")
+	if err != nil {
+		return fmt.Errorf("failed to open destination image (%s): %w", dstImageName, err)
+	}
+	defer dstImage.Close()
+
+	if err := dstImage.Flatten(); err != nil {
+		return fmt.Errorf("failed to flatten destination image (%s): %w", dstImageName, err)
+	}
 
 	return nil
 }

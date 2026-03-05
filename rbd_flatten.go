@@ -16,13 +16,13 @@ func (rc *RadosConn) RbdFlatten(ctx context.Context, imageSpec ImageSpec) error 
 }
 
 func RbdFlatten(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) error {
+	if !imageSpec.Valid() {
+		return errInvalidImageSpec
+	}
+
 	poolName := imageSpec.Pool()
 	imageName := imageSpec.Image()
 	namespaceName := imageSpec.Namespace()
-
-	if imageName == "" {
-		return fmt.Errorf("image name is empty")
-	}
 
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {
