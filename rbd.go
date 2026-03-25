@@ -4,17 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/ceph/go-ceph/rbd"
 )
 
 const (
-	// Default image order is 22 (2^22 = 4 MiB objects)
-	DefaultImageOrder uint64 = 22
-
-	// Default image features is layering and deep flatten
-	DefaultImageFeatures uint64 = uint64(rbd.FeatureLayering) | uint64(rbd.FeatureDeepFlatten)
-
 	// Default pool name
 	DefaultPoolName string = "rbd"
 )

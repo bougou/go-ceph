@@ -8,14 +8,14 @@ import (
 	"github.com/ceph/go-ceph/rbd"
 )
 
-func (rc *RadosConn) RbdCreate(ctx context.Context, imageSpec ImageSpec, sizeBytes int64, features uint64, order int) error {
+func (rc *RadosConn) RbdCreate(ctx context.Context, imageSpec ImageSpec, sizeBytes int64, optFns ...RbdImageOptionFn) error {
 	err := rc.Do(ctx, func() error {
-		return RbdCreate(ctx, rc.conn, imageSpec, sizeBytes, features, order)
+		return RbdCreate(ctx, rc.conn, imageSpec, sizeBytes, optFns...)
 	})
 	return err
 }
 
-func RbdCreate(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec, sizeBytes int64, features uint64, order int) error {
+func RbdCreate(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec, sizeBytes int64, optFns ...RbdImageOptionFn) error {
 	if !imageSpec.Valid() {
 		return errInvalidImageSpec
 	}
@@ -32,11 +32,15 @@ func RbdCreate(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec, sizeB
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := rbd.Create2(ioctx, imageName, uint64(sizeBytes), features, int(order))
+	imageOpts, err := rbdImageOptionsFromFns(optFns...)
 	if err != nil {
+		return fmt.Errorf("failed to build image options: %w", err)
+	}
+	defer imageOpts.Destroy()
+
+	if err := rbd.CreateImage(ioctx, imageName, uint64(sizeBytes), imageOpts); err != nil {
 		return fmt.Errorf("failed to create image (%s): %w", imageName, err)
 	}
-	defer image.Close()
 
 	return nil
 }

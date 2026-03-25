@@ -8,14 +8,14 @@ import (
 	"github.com/ceph/go-ceph/rbd"
 )
 
-func (rc *RadosConn) RbdCopy(ctx context.Context, srcImageSpec ImageSpec, dstImageSpec ImageSpec) error {
+func (rc *RadosConn) RbdCopy(ctx context.Context, srcImageSpec ImageSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
 	err := rc.Do(ctx, func() error {
-		return RbdCopy(ctx, rc.conn, srcImageSpec, dstImageSpec)
+		return RbdCopy(ctx, rc.conn, srcImageSpec, dstImageSpec, optFns...)
 	})
 	return err
 }
 
-func RbdCopy(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec) error {
+func RbdCopy(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
 	if !srcImageSpec.Valid() || !dstImageSpec.Valid() {
 		return errInvalidImageSpec
 	}
@@ -87,10 +87,13 @@ func RbdCopy(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstI
 
 	dstIOCtx.SetNamespace(dstNamespaceName)
 
-	opts := rbd.NewRbdImageOptions()
-	opts.SetUint64(rbd.ImageOption(rbd.ImageOptionFeatures), DefaultImageFeatures)
-	opts.SetUint64(rbd.ImageOption(rbd.ImageOptionOrder), DefaultImageOrder)
-	if err := rbd.CloneFromImage(srcImage, tempSnapName, dstIOCtx, dstImageName, opts); err != nil {
+	imageOpts, err := rbdImageOptionsFromFns(optFns...)
+	if err != nil {
+		return fmt.Errorf("failed to build image options: %w", err)
+	}
+	defer imageOpts.Destroy()
+
+	if err := rbd.CloneFromImage(srcImage, tempSnapName, dstIOCtx, dstImageName, imageOpts); err != nil {
 		return fmt.Errorf("failed to clone destination image (%s) from snapshot (%s): %w", dstImageName, tempSnapName, err)
 	}
 
