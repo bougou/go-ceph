@@ -60,6 +60,11 @@ func (i ImageSpec) Image() string {
 }
 
 func (i ImageSpec) Valid() bool {
+	s := i.clean()
+	// image spec must not include snapshot delimiter.
+	if strings.Contains(s, "@") {
+		return false
+	}
 	return i.Image() != "" && i.Pool() != ""
 }
 
@@ -123,6 +128,11 @@ func (v SnapSpec) Namespace() string {
 }
 
 func (v SnapSpec) Valid() bool {
+	s := v.clean()
+	// snap spec must include exactly one snapshot delimiter.
+	if strings.Count(s, "@") != 1 {
+		return false
+	}
 	return v.Snap() != "" && v.Image() != "" && v.Pool() != ""
 }
 

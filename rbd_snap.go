@@ -3,10 +3,27 @@ package ceph
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ceph/go-ceph/rados"
 	"github.com/ceph/go-ceph/rbd"
 )
+
+// RbdSnapInfo is an enriched snapshot model for API/CLI output.
+// NOTE: official go-ceph currently exposes snapshot ID/Name/Size only.
+// Snapshot creation timestamp is kept as an optional field for future support.
+type SnapInfo struct {
+	ID        uint64    `json:"id"`
+	Name      string    `json:"name"`
+	Size      uint64    `json:"size"`
+	Protected bool      `json:"protected"`
+	Timestamp time.Time `json:"timestamp,omitempty"`
+}
+
+// SizeHuman returns a human-readable snapshot size (e.g., "20 GiB").
+func (s SnapInfo) SizeHuman() string {
+	return sizeHuman(s.Size, 0)
+}
 
 func (rc *RadosConn) RbdSnapExist(ctx context.Context, snapSpec SnapSpec) (bool, error) {
 	var exist bool = false
@@ -153,8 +170,8 @@ func RbdSnapRemove(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) err
 	return nil
 }
 
-func (rc *RadosConn) RbdSnapList(ctx context.Context, imageSpec ImageSpec) ([]string, error) {
-	var snaps []string = nil
+func (rc *RadosConn) RbdSnapList(ctx context.Context, imageSpec ImageSpec) ([]SnapInfo, error) {
+	var snaps []SnapInfo = nil
 	err := rc.Do(ctx, func() error {
 		_snaps, err := RbdSnapList(ctx, rc.conn, imageSpec)
 		if err != nil {
@@ -166,7 +183,7 @@ func (rc *RadosConn) RbdSnapList(ctx context.Context, imageSpec ImageSpec) ([]st
 	return snaps, err
 }
 
-func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) ([]string, error) {
+func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) ([]SnapInfo, error) {
 	if !imageSpec.Valid() {
 		return nil, errInvalidImageSpec
 	}
@@ -194,10 +211,64 @@ func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) ([]
 		return nil, fmt.Errorf("failed to list snapshots for image (%s): %w", imageName, err)
 	}
 
-	snapNames := make([]string, len(snaps))
+	snapInfos := make([]SnapInfo, len(snaps))
 	for i, snap := range snaps {
-		snapNames[i] = snap.Name
+		snapshot := image.GetSnapshot(snap.Name)
+		protected, err := snapshot.IsProtected()
+		if err != nil {
+			return nil, fmt.Errorf("failed to check if snapshot (%s) is protected for image (%s): %w", snap.Name, imageName, err)
+		}
+
+		// Best-effort snapshot timestamp.
+		// NOTE: ceph tracker #47287 reports older clusters may assert
+		// if a non-existing snap ID is supplied. We use IDs returned by
+		// GetSnapshotNames() to avoid mismatches and treat retrieval failure
+		// as non-fatal by keeping Timestamp as zero value.
+		timestamp := time.Time{}
+		if snapTs, err := image.GetSnapTimestamp(snap.Id); err == nil {
+			timestamp = time.Unix(snapTs.Sec, snapTs.Nsec)
+		}
+
+		snapInfos[i] = SnapInfo{
+			ID:        snap.Id,
+			Name:      snap.Name,
+			Size:      snap.Size,
+			Protected: protected,
+			Timestamp: timestamp,
+		}
 	}
 
-	return snapNames, nil
+	return snapInfos, nil
+}
+
+func RbdSnapInfo(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (*rbd.ImageInfo, error) {
+	if !snapSpec.Valid() {
+		return nil, errInvalidSnapSpec
+	}
+
+	poolName := snapSpec.Pool()
+	imageName := snapSpec.Image()
+	namespaceName := snapSpec.Namespace()
+	snapName := snapSpec.Snap()
+
+	ioctx, err := conn.OpenIOContext(poolName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+	}
+	defer ioctx.Destroy()
+
+	ioctx.SetNamespace(namespaceName)
+
+	image, err := rbd.OpenImage(ioctx, imageName, snapName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open image (%s): %w", imageName, err)
+	}
+	defer image.Close()
+
+	info, err := image.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat snapshot (%s) for image (%s): %w", snapName, imageName, err)
+	}
+
+	return info, nil
 }

@@ -13,8 +13,8 @@ import (
 
 // RbdInfo retrieves detailed information about an RBD image.
 // If the image does not exist, it returns nil, nil.
-func (rc *RadosConn) RbdInfo(ctx context.Context, imageSpec ImageSpec) (*RbdImageInfo, error) {
-	var info *RbdImageInfo = nil
+func (rc *RadosConn) RbdInfo(ctx context.Context, imageSpec ImageSpec) (*ImageInfo, error) {
+	var info *ImageInfo = nil
 
 	err := rc.Do(ctx, func() error {
 		_info, err := RbdInfo(ctx, rc.conn, imageSpec)
@@ -30,7 +30,7 @@ func (rc *RadosConn) RbdInfo(ctx context.Context, imageSpec ImageSpec) (*RbdImag
 
 // RbdInfo retrieves detailed information about an RBD image.
 // If the image does not exist, it returns nil, nil.
-func RbdInfo(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (*RbdImageInfo, error) {
+func RbdInfo(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (*ImageInfo, error) {
 	if !imageSpec.Valid() {
 		return nil, errInvalidImageSpec
 	}
@@ -57,12 +57,12 @@ func RbdInfo(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (*RbdIm
 	}
 	defer image.Close()
 
-	return ConvertRbdImageToRbdInfo(image)
+	return ConvertRbdImageToImageInfo(image)
 }
 
-// RbdImageInfo contains detailed information about an RBD image,
+// ImageInfo contains detailed information about an RBD image,
 // equivalent to the output of `rbd info <image>`.
-type RbdImageInfo struct {
+type ImageInfo struct {
 	// Name is the name of the RBD image
 	Name string `json:"name,omitempty"`
 
@@ -150,7 +150,7 @@ func sizeHuman(size uint64, precision int) string {
 }
 
 // ObjectSizeHuman returns a human-readable object size string (e.g., "4 MiB")
-func (r *RbdImageInfo) ObjectSizeHuman() string {
+func (r *ImageInfo) ObjectSizeHuman() string {
 	const (
 		KiB = 1024
 		MiB = KiB * 1024
@@ -167,7 +167,7 @@ func (r *RbdImageInfo) ObjectSizeHuman() string {
 }
 
 // String returns a formatted string representation similar to `rbd info` output
-func (r *RbdImageInfo) String() string {
+func (r *ImageInfo) String() string {
 	out := fmt.Sprintf(`rbd image '%s':
 	size %s in %d objects
 	order %d (%s objects)
@@ -202,10 +202,10 @@ func (r *RbdImageInfo) String() string {
 
 }
 
-// ConvertRbdImageToRbdInfo retrieves detailed information from an already opened RBD image.
-func ConvertRbdImageToRbdInfo(image *rbd.Image) (*RbdImageInfo, error) {
+// ConvertRbdImageToImageInfo retrieves detailed information from an already opened RBD image.
+func ConvertRbdImageToImageInfo(image *rbd.Image) (*ImageInfo, error) {
 	imageName := image.GetName()
-	info := &RbdImageInfo{
+	info := &ImageInfo{
 		Name: imageName,
 	}
 
