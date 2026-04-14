@@ -13,10 +13,19 @@ import (
 // NOTE: official go-ceph currently exposes snapshot ID/Name/Size only.
 // Snapshot creation timestamp is kept as an optional field for future support.
 type SnapInfo struct {
-	ID        uint64    `json:"id"`
-	Name      string    `json:"name"`
-	Size      uint64    `json:"size"`
-	Protected bool      `json:"protected"`
+	// ID is the internal snapshot ID
+	ID uint64 `json:"id"`
+
+	// Name is the name of the snapshot
+	Name string `json:"name"`
+
+	// Size is the size of the snapshot in bytes
+	Size uint64 `json:"size"`
+
+	// Protected is true if the snapshot is protected
+	Protected bool `json:"protected"`
+
+	// Timestamp is the creation timestamp of the snapshot
 	Timestamp time.Time `json:"timestamp,omitempty"`
 }
 

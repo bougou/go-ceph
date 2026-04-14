@@ -112,6 +112,8 @@ type ImageInfo struct {
 	Overlap uint64 `json:"overlap,omitempty,omitzero"`
 }
 
+// sizeHuman formats a size value in bytes into a human-readable string with appropriate units (e.g., "20 GiB").
+// The input 'size' should be specified in bytes. The 'precision' parameter determines the number of decimal places to display (if > 0).
 func sizeHuman(size uint64, precision int) string {
 	const (
 		KiB = 1024
