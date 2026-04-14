@@ -152,3 +152,52 @@ func RbdSnapRemove(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) err
 
 	return nil
 }
+
+func (rc *RadosConn) RbdSnapList(ctx context.Context, imageSpec ImageSpec) ([]string, error) {
+	var snaps []string = nil
+	err := rc.Do(ctx, func() error {
+		_snaps, err := RbdSnapList(ctx, rc.conn, imageSpec)
+		if err != nil {
+			return err
+		}
+		snaps = _snaps
+		return nil
+	})
+	return snaps, err
+}
+
+func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) ([]string, error) {
+	if !imageSpec.Valid() {
+		return nil, errInvalidImageSpec
+	}
+
+	poolName := imageSpec.Pool()
+	imageName := imageSpec.Image()
+	namespaceName := imageSpec.Namespace()
+
+	ioctx, err := conn.OpenIOContext(poolName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+	}
+	defer ioctx.Destroy()
+
+	ioctx.SetNamespace(namespaceName)
+
+	image, err := rbd.OpenImage(ioctx, imageName, rbd.NoSnapshot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open image (%s): %w", imageName, err)
+	}
+	defer image.Close()
+
+	snaps, err := image.GetSnapshotNames()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list snapshots for image (%s): %w", imageName, err)
+	}
+
+	snapNames := make([]string, len(snaps))
+	for i, snap := range snaps {
+		snapNames[i] = snap.Name
+	}
+
+	return snapNames, nil
+}
