@@ -18,6 +18,17 @@ type RadosConn struct {
 	cephConfFile string
 }
 
+// NewRadosConn creates a RADOS connection wrapper.
+//
+// The `cephConfFile` specifies the Ceph config file path; if empty, the default config is used.
+//
+// The `lazy` controls whether the underlying connection is created immediately.
+//   - When `lazy` is false, the the config is loaded and the connection is created immediately.
+//   - When `lazy` is true, config loading and connection creation are deferred to the first `Connect`/`Do` call.
+//
+// Error behavior:
+//   - When `lazy` is false, may return an error immediately if config loading fails.
+//   - When `lazy` is true, always returns nil error here
 func NewRadosConn(cephConfFile string, lazy bool) (*RadosConn, error) {
 	var conn *rados.Conn = nil
 
