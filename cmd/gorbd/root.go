@@ -29,6 +29,7 @@ func newRootCmd() *cobra.Command {
 		newCloneCmd(),
 		newChildrenCmd(),
 		newSnapCmd(),
+		newDeviceCmd(),
 	)
 
 	return cmd
