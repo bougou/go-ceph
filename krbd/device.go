@@ -142,7 +142,7 @@ func Devices() ([]Device, error) {
 }
 
 func (d *Device) DevPath() string {
-	return fmt.Sprintf("%s/%d", "/dev/rbd", d.ID)
+	return fmt.Sprintf("%s%d", "/dev/rbd", d.ID)
 }
 
 func Find(namespace, pool, image, snapshot string) (Device, error) {
