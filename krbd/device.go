@@ -107,7 +107,9 @@ func (d *Device) decode(path string) error {
 
 func (d *Device) FeatureNames() []string {
 	featureSet := rbd.FeatureSet(d.Features)
-	return featureSet.Names()
+	names := featureSet.Names() // Names() is backed by a map, so the order is non-deterministic.
+	sort.Strings(names)         // Sort to make the output deterministic.
+	return names
 }
 
 // Devices iterates over all RBD devices and returns a list of Device structs.
