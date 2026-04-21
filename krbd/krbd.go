@@ -109,21 +109,20 @@ func MapWriter() (io.WriteCloser, error) {
 	}
 
 	if parameters.SingleMajor {
-		w, err := openFirstExistingWriter(
-			filepath.Join(SysBusRbdPath, "add_single_major"),
-			filepath.Join(SysBusRbdDevicesPath, "add_single_major"),
-			filepath.Join(SysBusRbdPath, "add"),
-			filepath.Join(SysBusRbdDevicesPath, "add"),
-		)
-		if err == nil {
-			return w, nil
+		path := filepath.Join(SysBusRbdPath, "add_single_major")
+		w, err := os.OpenFile(path, os.O_WRONLY, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open path (%s): %w", path, err)
 		}
+		return w, nil
 	}
 
-	return openFirstExistingWriter(
-		filepath.Join(SysBusRbdPath, "add"),
-		filepath.Join(SysBusRbdDevicesPath, "add"),
-	)
+	path := filepath.Join(SysBusRbdPath, "add")
+	w, err := os.OpenFile(path, os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open path (%s): %w", path, err)
+	}
+	return w, nil
 }
 
 func UnmapWriter() (io.WriteCloser, error) {
@@ -134,31 +133,18 @@ func UnmapWriter() (io.WriteCloser, error) {
 	}
 
 	if parameters.SingleMajor {
-		w, err := openFirstExistingWriter(
-			filepath.Join(SysBusRbdPath, "remove_single_major"),
-			filepath.Join(SysBusRbdDevicesPath, "remove_single_major"),
-			filepath.Join(SysBusRbdPath, "remove"),
-			filepath.Join(SysBusRbdDevicesPath, "remove"),
-		)
-		if err == nil {
-			return w, nil
+		path := filepath.Join(SysBusRbdPath, "remove_single_major")
+		w, err := os.OpenFile(path, os.O_WRONLY, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open path (%s): %w", path, err)
 		}
+		return w, nil
 	}
 
-	return openFirstExistingWriter(
-		filepath.Join(SysBusRbdPath, "remove"),
-		filepath.Join(SysBusRbdDevicesPath, "remove"),
-	)
-}
-
-func openFirstExistingWriter(paths ...string) (io.WriteCloser, error) {
-	var errs []string
-	for _, p := range paths {
-		w, err := os.OpenFile(p, os.O_WRONLY, 0644)
-		if err == nil {
-			return w, nil
-		}
-		errs = append(errs, fmt.Sprintf("%s: %v", p, err))
+	path := filepath.Join(SysBusRbdPath, "remove")
+	w, err := os.OpenFile(path, os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open path (%s): %w", path, err)
 	}
-	return nil, fmt.Errorf("failed to open sysfs writer (%s)", strings.Join(errs, "; "))
+	return w, nil
 }

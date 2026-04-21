@@ -30,7 +30,7 @@ type Options struct {
 	OSDIdleTTL               int    `krbd:"osd_idlettl"`
 
 	// RBD Block Options
-	Force       bool   `krbd:"force"` // Unmap only
+	Force       bool   `krbd:"force"` // Force specifies that the unmap operation should be forced; this option is only recognized and used during Unmap operations.
 	ReadWrite   bool   `krbd:"rw"`
 	ReadOnly    bool   `krbd:"ro"`
 	QueueDepth  int    `krbd:"queue_depth"`
