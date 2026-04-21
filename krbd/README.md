@@ -1,39 +1,21 @@
 # krbd
 
-The `krbd` subpackage maps and unmaps Ceph RBD images through the Linux kernel `rbd` driver (kernel rbd).
-
-It is designed for cases where Go code should talk directly to `sysfs` and reuse the kernel `krbd` interface, instead of depending on the external `rbd` CLI tool.
+The `krbd` subpackage maps and unmaps Ceph RBD images via the Linux kernel `rbd` driver (krbd), without requiring the external `rbd` CLI tool.
 
 ## Purpose
 
 - Start RBD map/unmap requests programmatically.
-- Assemble Ceph monitor, pool, image, snapshot, and krbd options into the format expected by the kernel.
-- Automatically pick a valid `sysfs` write endpoint across kernel/distribution path differences.
+- Use typed Go structs to describe mapping and unmapping requests.
+- Keep map/unmap flows simple and consistent across environments.
 
-## Implementation
+## API overview
 
-The current `krbd` implementation is built around `sysfs`, with four main parts:
-
-1. **Request modeling**
-   - `Image` represents the core fields for a map/unmap operation (monitors, pool, image, snapshot, dev id, etc.).
-   - `Options` represents optional krbd parameters (such as `name`, `secret`, `read-only`, `queue_depth`, etc.).
-
-2. **Parameter encoding**
-   - `Image.MarshalText()` encodes image fields into the string format expected by the kernel `add` interface.
-   - `Options.MarshalText()` converts struct fields (based on `krbd` tags) into comma-separated options; boolean options are emitted by key presence.
-   - `Options.UnmarshalText()` parses a comma-separated options string back into `Options`.
-
-3. **Map/Unmap execution**
-   - `Image.Map(w io.Writer)` writes map requests to `add`-style interfaces.
-   - `Image.Unmap(w io.Writer)` writes unmap requests to `remove`-style interfaces (supports `force`).
-   - `MapWriter()` / `UnmapWriter()` open the appropriate `sysfs` writer.
-
-4. **Kernel parameter compatibility**
-   - Reads `/sys/module/rbd/parameters/single_major` to detect whether `single_major` is enabled.
-   - Based on that parameter, it tries in this order:
-     - `add_single_major` / `remove_single_major`
-     - fallback to `add` / `remove`
-   - Supports both `/sys/bus/rbd` and `/sys/bus/rbd/devices` path layouts.
+- `Image` describes an RBD target to map or unmap.
+- `Options` carries optional krbd parameters such as credentials and mount behavior.
+- `MapWriter()` and `UnmapWriter()` provide writers for map/unmap operations.
+- `(*Image).Map(w)` sends a map request.
+- `(*Image).Unmap(w)` sends an unmap request (supports force via `Options.Force`).
+- `Devices()` and `Find()` help query currently mapped devices.
 
 ## Basic usage example
 
@@ -45,13 +27,13 @@ if err != nil {
 defer w.Close()
 
 img := krbd.Image{
-    Monitors: []string{"10.0.0.1:6789", "10.0.0.2:6789"},
+    Monitors: []string{"10.0.0.1", "10.0.0.2"},
+    Namespace: "",
     Pool:     "rbd",
     Image:    "demo-image",
-    Snapshot: "-",
     Options: &krbd.Options{
-        Name:   "client.admin",
-        Secret: "<base64-key>",
+        Name:     "admin",
+        Secret:   "<base64-key>",
         ReadOnly: true,
     },
 }
@@ -62,8 +44,9 @@ if err := img.Map(w); err != nil {
 ```
 
 For unmapping, use `UnmapWriter()` and call `Unmap()` with `Image{DevID: ...}`.
+To force unmap, set `Options: &krbd.Options{Force: true}`.
 
-## References and source notes
+## References
 
 - This subpackage is inspired by and references the community project [`bensallen/rbd`](https://github.com/bensallen/rbd).
 - It also follows the Linux kernel `rbd` `sysfs` ABI contract: [`Documentation/ABI/testing/sysfs-bus-rbd`](https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-rbd).

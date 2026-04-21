@@ -7,8 +7,8 @@ import (
 
 // Image is a Ceph RBD image.
 type Image struct {
-	DevID     int // Unmap only
-	Monitors  []string
+	DevID     int      // Unmap only
+	Monitors  []string // Monitor endpoints for krbd map requests; host-only or v1-style host:port is generally the most compatible input.
 	Namespace string
 	Pool      string
 	Image     string
