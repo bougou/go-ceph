@@ -41,14 +41,14 @@ func expandKeyringPaths(raw string) []string {
 	return lo.Uniq(out)
 }
 
-func parseCephKeyring(path string) (map[string]string, error) {
+func parseCephKeyring(path string) (out map[string]string, err error) {
 	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
-		return nil, err
+		return
 	}
 	defer f.Close()
 
-	out := map[string]string{}
+	out = map[string]string{}
 	scanner := bufio.NewScanner(f)
 	entity := ""
 	for scanner.Scan() {
@@ -70,8 +70,9 @@ func parseCephKeyring(path string) (map[string]string, error) {
 			}
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
+	if scanErr := scanner.Err(); scanErr != nil {
+		err = scanErr
+		return
 	}
-	return out, nil
+	return
 }

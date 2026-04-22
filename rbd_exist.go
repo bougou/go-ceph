@@ -8,9 +8,8 @@ import (
 	"github.com/ceph/go-ceph/rbd"
 )
 
-func (rc *RadosConn) RbdExist(ctx context.Context, imageSpec ImageSpec) (bool, error) {
-	var exist bool = false
-	err := rc.Do(ctx, func() error {
+func (rc *RadosConn) RbdExist(ctx context.Context, imageSpec ImageSpec) (exist bool, err error) {
+	err = rc.Do(ctx, func() error {
 		_exist, err := RbdExist(ctx, rc.conn, imageSpec)
 		if err != nil {
 			return err
@@ -18,21 +17,19 @@ func (rc *RadosConn) RbdExist(ctx context.Context, imageSpec ImageSpec) (bool, e
 		exist = _exist
 		return nil
 	})
-	return exist, err
+	return
 }
 
-func RbdExist(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (bool, error) {
-	if !imageSpec.Valid() {
-		return false, errInvalidImageSpec
+func RbdExist(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (exist bool, err error) {
+	namespaceName, poolName, imageName, err := Image(string(imageSpec))
+	if err != nil {
+		return
 	}
-
-	poolName := imageSpec.Pool()
-	imageName := imageSpec.Image()
-	namespaceName := imageSpec.Namespace()
 
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {
-		return false, fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		err = fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		return
 	}
 	defer ioctx.Destroy()
 
@@ -41,11 +38,14 @@ func RbdExist(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (bool,
 	image, err := rbd.OpenImageReadOnly(ioctx, imageName, rbd.NoSnapshot)
 	if err != nil {
 		if isErrNotFound(err) {
-			return false, nil
+			err = nil
+			return
 		}
-		return false, fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		return
 	}
 	defer image.Close()
 
-	return true, nil
+	exist = true
+	return
 }

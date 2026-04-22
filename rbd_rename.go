@@ -16,20 +16,18 @@ func (rc *RadosConn) RbdRename(ctx context.Context, srcImageSpec ImageSpec, dstI
 }
 
 func RbdRename(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec) error {
-	if !srcImageSpec.Valid() || !dstImageSpec.Valid() {
-		return errInvalidImageSpec
+	srcNamespaceName, srcPoolName, srcImageName, err := Image(string(srcImageSpec))
+	if err != nil {
+		return err
+	}
+	dstNamespaceName, dstPoolName, dstImageName, err := Image(string(dstImageSpec))
+	if err != nil {
+		return err
 	}
 
 	if srcImageSpec.Equal(dstImageSpec) {
 		return nil
 	}
-
-	srcPoolName := srcImageSpec.Pool()
-	srcImageName := srcImageSpec.Image()
-	srcNamespaceName := srcImageSpec.Namespace()
-	dstPoolName := dstImageSpec.Pool()
-	dstImageName := dstImageSpec.Image()
-	dstNamespaceName := dstImageSpec.Namespace()
 
 	if srcPoolName != dstPoolName {
 		return fmt.Errorf("source pool (%s) and destination pool (%s) are different", srcPoolName, dstPoolName)

@@ -13,10 +13,8 @@ import (
 
 // RbdInfo retrieves detailed information about an RBD image.
 // If the image does not exist, it returns nil, nil.
-func (rc *RadosConn) RbdInfo(ctx context.Context, imageSpec ImageSpec) (*ImageInfo, error) {
-	var info *ImageInfo = nil
-
-	err := rc.Do(ctx, func() error {
+func (rc *RadosConn) RbdInfo(ctx context.Context, imageSpec ImageSpec) (info *ImageInfo, err error) {
+	err = rc.Do(ctx, func() error {
 		_info, err := RbdInfo(ctx, rc.conn, imageSpec)
 		if err != nil {
 			return err
@@ -24,25 +22,22 @@ func (rc *RadosConn) RbdInfo(ctx context.Context, imageSpec ImageSpec) (*ImageIn
 		info = _info
 		return nil
 	})
-
-	return info, err
+	return
 }
 
 // RbdInfo retrieves detailed information about an RBD image.
 // If the image does not exist, it returns nil, nil.
-func RbdInfo(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (*ImageInfo, error) {
-	if !imageSpec.Valid() {
-		return nil, errInvalidImageSpec
+func RbdInfo(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (info *ImageInfo, err error) {
+	namespaceName, poolName, imageName, err := Image(string(imageSpec))
+	if err != nil {
+		return
 	}
-
-	poolName := imageSpec.Pool()
-	imageName := imageSpec.Image()
-	namespaceName := imageSpec.Namespace()
 
 	// Open IOContext for the pool
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		err = fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		return
 	}
 	defer ioctx.Destroy()
 
@@ -51,13 +46,16 @@ func RbdInfo(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (*Image
 	image, err := rbd.OpenImage(ioctx, imageName, rbd.NoSnapshot)
 	if err != nil {
 		if isErrNotFound(err) {
-			return nil, nil
+			err = nil
+			return
 		}
-		return nil, fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		return
 	}
 	defer image.Close()
 
-	return ConvertRbdImageToImageInfo(image)
+	info, err = ConvertRbdImageToImageInfo(image)
+	return
 }
 
 // ImageInfo contains detailed information about an RBD image,
@@ -205,16 +203,17 @@ func (r *ImageInfo) String() string {
 }
 
 // ConvertRbdImageToImageInfo retrieves detailed information from an already opened RBD image.
-func ConvertRbdImageToImageInfo(image *rbd.Image) (*ImageInfo, error) {
+func ConvertRbdImageToImageInfo(image *rbd.Image) (info *ImageInfo, err error) {
 	imageName := image.GetName()
-	info := &ImageInfo{
+	info = &ImageInfo{
 		Name: imageName,
 	}
 
 	// Get basic image stats
 	stat, err := image.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("failed to stat image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to stat image (%s): %w", imageName, err)
+		return
 	}
 	info.Size = stat.Size
 	info.NumObjects = stat.Num_objs
@@ -225,14 +224,16 @@ func ConvertRbdImageToImageInfo(image *rbd.Image) (*ImageInfo, error) {
 	// Get image ID
 	id, err := image.GetId()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get image ID for image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to get image ID for image (%s): %w", imageName, err)
+		return
 	}
 	info.ID = id
 
 	// Get image format (old format = 1, new format = 2)
 	isOldFormat, err := image.IsOldFormat()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get image format for image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to get image format for image (%s): %w", imageName, err)
+		return
 	}
 	if isOldFormat {
 		info.Format = 1
@@ -243,7 +244,8 @@ func ConvertRbdImageToImageInfo(image *rbd.Image) (*ImageInfo, error) {
 	// Get features
 	features, err := image.GetFeatures()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get image features for image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to get image features for image (%s): %w", imageName, err)
+		return
 	}
 	info.Features = features
 
@@ -254,44 +256,51 @@ func ConvertRbdImageToImageInfo(image *rbd.Image) (*ImageInfo, error) {
 	// Get snapshot count
 	snapshots, err := image.GetSnapshotNames()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get snapshot names for image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to get snapshot names for image (%s): %w", imageName, err)
+		return
 	}
 	info.SnapshotCount = len(snapshots)
 
 	// Get timestamps
 	createTs, err := image.GetCreateTimestamp()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get create timestamp for image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to get create timestamp for image (%s): %w", imageName, err)
+		return
 	}
 	info.CreateTimestamp = time.Unix(createTs.Sec, createTs.Nsec)
 
 	accessTs, err := image.GetAccessTimestamp()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get access timestamp for image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to get access timestamp for image (%s): %w", imageName, err)
+		return
 	}
 	info.AccessTimestamp = time.Unix(accessTs.Sec, accessTs.Nsec)
 
 	modifyTs, err := image.GetModifyTimestamp()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get modify timestamp for image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to get modify timestamp for image (%s): %w", imageName, err)
+		return
 	}
 	info.ModifyTimestamp = time.Unix(modifyTs.Sec, modifyTs.Nsec)
 
 	parent, err := image.GetParent()
 	if err != nil {
 		if isErrNotFound(err) {
-			return info, nil
+			err = nil
+			return
 		}
-		return nil, fmt.Errorf("failed to get parent for image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to get parent for image (%s): %w", imageName, err)
+		return
 	} else {
 		info.Parent = fmt.Sprintf("%s/%s@%s", parent.Image.PoolName, parent.Image.ImageName, parent.Snap.SnapName)
 
-		overlap, err := image.GetOverlap()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get overlap for image (%s): %w", imageName, err)
+		overlap, overlapErr := image.GetOverlap()
+		if overlapErr != nil {
+			err = fmt.Errorf("failed to get overlap for image (%s): %w", imageName, overlapErr)
+			return
 		}
 		info.Overlap = overlap
 	}
 
-	return info, nil
+	return
 }

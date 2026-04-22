@@ -8,9 +8,8 @@ import (
 	"github.com/ceph/go-ceph/rbd"
 )
 
-func (rc *RadosConn) RbdChildren(ctx context.Context, imageSpec ImageSpec) ([]ImageSpec, error) {
-	var children []ImageSpec = nil
-	err := rc.Do(ctx, func() error {
+func (rc *RadosConn) RbdChildren(ctx context.Context, imageSpec ImageSpec) (children []ImageSpec, err error) {
+	err = rc.Do(ctx, func() error {
 		_children, err := RbdChildren(ctx, rc.conn, imageSpec)
 		if err != nil {
 			return err
@@ -18,21 +17,19 @@ func (rc *RadosConn) RbdChildren(ctx context.Context, imageSpec ImageSpec) ([]Im
 		children = _children
 		return nil
 	})
-	return children, err
+	return
 }
 
-func RbdChildren(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) ([]ImageSpec, error) {
-	if !imageSpec.Valid() {
-		return nil, errInvalidImageSpec
+func RbdChildren(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (children []ImageSpec, err error) {
+	namespaceName, poolName, imageName, err := Image(string(imageSpec))
+	if err != nil {
+		return
 	}
-
-	poolName := imageSpec.Pool()
-	imageName := imageSpec.Image()
-	namespaceName := imageSpec.Namespace()
 
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		err = fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		return
 	}
 	defer ioctx.Destroy()
 
@@ -40,30 +37,32 @@ func RbdChildren(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) ([]
 
 	image, err := rbd.OpenImage(ioctx, imageName, rbd.NoSnapshot)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		return
 	}
 	defer image.Close()
 
 	childrenPoolNames, childrenImageNames, err := image.ListChildren()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list children for image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to list children for image (%s): %w", imageName, err)
+		return
 	}
 
 	if len(childrenPoolNames) != len(childrenImageNames) {
-		return nil, fmt.Errorf("failed to list children for image (%s): %w", imageName, "number of children pool names and image names are different")
+		err = fmt.Errorf("failed to list children for image (%s): %w", imageName, "number of children pool names and image names are different")
+		return
 	}
 
-	children := make([]ImageSpec, len(childrenPoolNames))
+	children = make([]ImageSpec, len(childrenPoolNames))
 	for i, childPoolName := range childrenPoolNames {
 		children[i] = NewImageSpec(childPoolName, childrenImageNames[i])
 	}
 
-	return children, nil
+	return
 }
 
-func (rc *RadosConn) RbdSnapChildren(ctx context.Context, snapSpec SnapSpec) ([]ImageSpec, error) {
-	var children []ImageSpec = nil
-	err := rc.Do(ctx, func() error {
+func (rc *RadosConn) RbdSnapChildren(ctx context.Context, snapSpec SnapSpec) (children []ImageSpec, err error) {
+	err = rc.Do(ctx, func() error {
 		_children, err := RbdSnapChildren(ctx, rc.conn, snapSpec)
 		if err != nil {
 			return err
@@ -71,22 +70,19 @@ func (rc *RadosConn) RbdSnapChildren(ctx context.Context, snapSpec SnapSpec) ([]
 		children = _children
 		return nil
 	})
-	return children, err
+	return
 }
 
-func RbdSnapChildren(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) ([]ImageSpec, error) {
-	if !snapSpec.Valid() {
-		return nil, errInvalidSnapSpec
+func RbdSnapChildren(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (children []ImageSpec, err error) {
+	namespaceName, poolName, imageName, snapName, err := Snap(string(snapSpec))
+	if err != nil {
+		return
 	}
-
-	poolName := snapSpec.Pool()
-	imageName := snapSpec.Image()
-	namespaceName := snapSpec.Namespace()
-	snapName := snapSpec.Snap()
 
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		err = fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		return
 	}
 	defer ioctx.Destroy()
 
@@ -94,23 +90,26 @@ func RbdSnapChildren(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (
 
 	image, err := rbd.OpenImage(ioctx, imageName, snapName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		return
 	}
 	defer image.Close()
 
 	childrenPoolNames, childrenImageNames, err := image.ListChildren()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list children for image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to list children for image (%s): %w", imageName, err)
+		return
 	}
 
 	if len(childrenPoolNames) != len(childrenImageNames) {
-		return nil, fmt.Errorf("failed to list children for image (%s): %w", imageName, "number of children pool names and image names are different")
+		err = fmt.Errorf("failed to list children for image (%s): %w", imageName, "number of children pool names and image names are different")
+		return
 	}
 
-	children := make([]ImageSpec, len(childrenPoolNames))
+	children = make([]ImageSpec, len(childrenPoolNames))
 	for i, childPoolName := range childrenPoolNames {
 		children[i] = NewImageSpec(childPoolName, childrenImageNames[i])
 	}
 
-	return children, nil
+	return
 }

@@ -143,45 +143,50 @@ func (v SnapSpec) Equal(other SnapSpec) bool {
 // ImageOrSnap parses an image or snapshot spec and returns the namespace, pool, image, and snapshot.
 // If the returned snapshot is empty, it means the spec is an image spec.
 func ImageOrSnap(imageOrSnapSpec string) (namespace string, pool string, image string, snapshot string, err error) {
-	s := string(imageOrSnapSpec)
-
-	if snapSpec := SnapSpec(s); snapSpec.Valid() {
-		namespace = snapSpec.Namespace()
-		pool = snapSpec.Pool()
-		image = snapSpec.Image()
-		snapshot = snapSpec.Snap()
-	} else if imageSpec := ImageSpec(s); imageSpec.Valid() {
-		namespace = imageSpec.Namespace()
-		pool = imageSpec.Pool()
-		image = imageSpec.Image()
-	} else {
-		err = fmt.Errorf("invalid image or snapshot spec: %s", s)
+	s := strings.TrimSpace(imageOrSnapSpec)
+	if strings.Contains(s, "@") {
+		namespace, pool, image, snapshot, err = Snap(s)
+		if err != nil {
+			err = fmt.Errorf("invalid image or snapshot spec: %s", s)
+		}
 		return
+	}
+	namespace, pool, image, err = Image(s)
+	if err != nil {
+		err = fmt.Errorf("invalid image or snapshot spec: %s", s)
 	}
 	return
 }
 
 func Image(imageSpec string) (namespace string, pool string, image string, err error) {
-	if imageSpec := ImageSpec(imageSpec); imageSpec.Valid() {
-		namespace = imageSpec.Namespace()
-		pool = imageSpec.Pool()
-		image = imageSpec.Image()
-	} else {
+	spec := strings.TrimSpace(imageSpec)
+	if strings.Contains(spec, "@") {
 		err = fmt.Errorf("invalid image spec: %s", imageSpec)
 		return
+	}
+	imageSpecValue := ImageSpec(spec)
+	namespace = imageSpecValue.Namespace()
+	pool = imageSpecValue.Pool()
+	image = imageSpecValue.Image()
+	if image == "" || pool == "" {
+		err = fmt.Errorf("invalid image spec: %s", imageSpec)
 	}
 	return
 }
 
 func Snap(snapSpec string) (namespace string, pool string, image string, snapshot string, err error) {
-	if snapSpec := SnapSpec(snapSpec); snapSpec.Valid() {
-		namespace = snapSpec.Namespace()
-		pool = snapSpec.Pool()
-		image = snapSpec.Image()
-		snapshot = snapSpec.Snap()
-	} else {
+	spec := strings.TrimSpace(snapSpec)
+	if strings.Count(spec, "@") != 1 {
 		err = fmt.Errorf("invalid snap spec: %s", snapSpec)
 		return
+	}
+	snapSpecValue := SnapSpec(spec)
+	namespace = snapSpecValue.Namespace()
+	pool = snapSpecValue.Pool()
+	image = snapSpecValue.Image()
+	snapshot = snapSpecValue.Snap()
+	if snapshot == "" || image == "" || pool == "" {
+		err = fmt.Errorf("invalid snap spec: %s", snapSpec)
 	}
 	return
 }

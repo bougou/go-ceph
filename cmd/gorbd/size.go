@@ -7,10 +7,11 @@ import (
 	"strings"
 )
 
-func parseSizeToBytes(input string) (uint64, error) {
+func parseSizeToBytes(input string) (sizeBytes uint64, err error) {
 	s := strings.TrimSpace(strings.ToUpper(input))
 	if s == "" {
-		return 0, errors.New("size is empty")
+		err = errors.New("size is empty")
+		return
 	}
 
 	multiplier := uint64(1)
@@ -45,11 +46,14 @@ func parseSizeToBytes(input string) (uint64, error) {
 
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return 0, fmt.Errorf("invalid size %q", input)
+		err = fmt.Errorf("invalid size %q", input)
+		return
 	}
 	n, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid size %q: %w", input, err)
+		err = fmt.Errorf("invalid size %q: %w", input, err)
+		return
 	}
-	return n * multiplier, nil
+	sizeBytes = n * multiplier
+	return
 }

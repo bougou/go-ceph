@@ -25,14 +25,16 @@ type parameterTag struct {
 	optional bool
 }
 
-func parseSysfsBool(value string) (bool, error) {
+func parseSysfsBool(value string) (b bool, err error) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "1", "y", "yes", "true", "on":
-		return true, nil
+		b = true
+		return
 	case "0", "n", "no", "false", "off":
-		return false, nil
+		return
 	default:
-		return false, fmt.Errorf("invalid bool value %q", value)
+		err = fmt.Errorf("invalid bool value %q", value)
+		return
 	}
 }
 
@@ -101,50 +103,56 @@ func (p *Parameters) decode(path string) error {
 	return nil
 }
 
-func MapWriter() (io.WriteCloser, error) {
+func MapWriter() (w io.WriteCloser, err error) {
 	parameters := Parameters{}
-	err := parameters.decode(SysModuleRbdParametersPath)
+	err = parameters.decode(SysModuleRbdParametersPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode parameters: %w", err)
+		err = fmt.Errorf("failed to decode parameters: %w", err)
+		return
 	}
 
 	if parameters.SingleMajor {
 		path := filepath.Join(SysBusRbdPath, "add_single_major")
-		w, err := os.OpenFile(path, os.O_WRONLY, 0644)
+		w, err = os.OpenFile(path, os.O_WRONLY, 0644)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open path (%s): %w", path, err)
+			err = fmt.Errorf("failed to open path (%s): %w", path, err)
+			return
 		}
-		return w, nil
+		return
 	}
 
 	path := filepath.Join(SysBusRbdPath, "add")
-	w, err := os.OpenFile(path, os.O_WRONLY, 0644)
+	w, err = os.OpenFile(path, os.O_WRONLY, 0644)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open path (%s): %w", path, err)
+		err = fmt.Errorf("failed to open path (%s): %w", path, err)
+		return
 	}
-	return w, nil
+	return
 }
 
-func UnmapWriter() (io.WriteCloser, error) {
+func UnmapWriter() (w io.WriteCloser, err error) {
 	parameters := Parameters{}
-	err := parameters.decode(SysModuleRbdParametersPath)
+	err = parameters.decode(SysModuleRbdParametersPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode parameters: %w", err)
+		err = fmt.Errorf("failed to decode parameters: %w", err)
+		return
 	}
 
 	if parameters.SingleMajor {
 		path := filepath.Join(SysBusRbdPath, "remove_single_major")
-		w, err := os.OpenFile(path, os.O_WRONLY, 0644)
+		w, err = os.OpenFile(path, os.O_WRONLY, 0644)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open path (%s): %w", path, err)
+			err = fmt.Errorf("failed to open path (%s): %w", path, err)
+			return
 		}
-		return w, nil
+		return
 	}
 
 	path := filepath.Join(SysBusRbdPath, "remove")
-	w, err := os.OpenFile(path, os.O_WRONLY, 0644)
+	w, err = os.OpenFile(path, os.O_WRONLY, 0644)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open path (%s): %w", path, err)
+		err = fmt.Errorf("failed to open path (%s): %w", path, err)
+		return
 	}
-	return w, nil
+	return
 }

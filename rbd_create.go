@@ -16,13 +16,10 @@ func (rc *RadosConn) RbdCreate(ctx context.Context, imageSpec ImageSpec, sizeByt
 }
 
 func RbdCreate(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec, sizeBytes int64, optFns ...RbdImageOptionFn) error {
-	if !imageSpec.Valid() {
-		return errInvalidImageSpec
+	namespaceName, poolName, imageName, err := Image(string(imageSpec))
+	if err != nil {
+		return err
 	}
-
-	poolName := imageSpec.Pool()
-	imageName := imageSpec.Image()
-	namespaceName := imageSpec.Namespace()
 
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {

@@ -29,7 +29,7 @@ func (a address) String() string {
 	return string(b)
 }
 
-func (a address) MarshalText() ([]byte, error) {
+func (a address) MarshalText() (text []byte, err error) {
 	var b strings.Builder
 	switch a.addrType {
 	case addrTypeV1:
@@ -44,7 +44,8 @@ func (a address) MarshalText() ([]byte, error) {
 	if a.nonce > 0 {
 		b.WriteString(fmt.Sprintf("/%d", a.nonce))
 	}
-	return []byte(b.String()), nil
+	text = []byte(b.String())
+	return
 }
 
 func MarshalAddress(a address) string {
@@ -81,13 +82,12 @@ func MarshalAddresses2(addrs [][]address) string {
 // Return value: outer slice = one logical monitor per element; inner slice = parsed endpoints for that monitor (e.g. v1 and v2 to the same IP).
 //
 // see: https://docs.ceph.com/en/nautilus/rados/configuration/msgr2/#address-formats
-func parseAddresses(addrs string) ([][]address, error) {
+func parseAddresses(addrs string) (out [][]address, err error) {
 	s := strings.TrimSpace(addrs)
 	if s == "" {
-		return nil, nil
+		return
 	}
 
-	var out [][]address
 	for _, top := range splitTopLevelMonGroups(s) {
 		top = strings.TrimSpace(top)
 		if top == "" {
@@ -97,16 +97,17 @@ func parseAddresses(addrs string) ([][]address, error) {
 		if len(tokens) == 0 {
 			continue
 		}
-		grouped, err := groupMonTokensByHost(tokens)
-		if err != nil {
-			return nil, err
+		grouped, groupErr := groupMonTokensByHost(tokens)
+		if groupErr != nil {
+			err = groupErr
+			return
 		}
 		out = append(out, grouped...)
 	}
 	if len(out) == 0 {
-		return nil, nil
+		return
 	}
-	return out, nil
+	return
 }
 
 // formatMonitorAddr renders a parsed address in mon_host / krbd style.
@@ -169,7 +170,7 @@ func splitMonAddrList(s string) []string {
 }
 
 // groupMonTokensByHost merges tokens that share the same host; host order follows first occurrence in tokens.
-func groupMonTokensByHost(tokens []string) ([][]address, error) {
+func groupMonTokensByHost(tokens []string) (out [][]address, err error) {
 	order := make([]string, 0)
 	byHost := make(map[string][]address)
 	for _, tok := range tokens {
@@ -177,9 +178,10 @@ func groupMonTokensByHost(tokens []string) ([][]address, error) {
 		if tok == "" {
 			continue
 		}
-		a, err := parseAddress(tok)
-		if err != nil {
-			return nil, fmt.Errorf("parseAddress (%q): %w", tok, err)
+		a, parseErr := parseAddress(tok)
+		if parseErr != nil {
+			err = fmt.Errorf("parseAddress (%q): %w", tok, parseErr)
+			return
 		}
 		host := a.host
 		if _, ok := byHost[host]; !ok {
@@ -187,11 +189,11 @@ func groupMonTokensByHost(tokens []string) ([][]address, error) {
 		}
 		byHost[host] = append(byHost[host], a)
 	}
-	out := make([][]address, 0, len(order))
+	out = make([][]address, 0, len(order))
 	for _, h := range order {
 		out = append(out, byHost[h])
 	}
-	return out, nil
+	return
 }
 
 // addr can be:
@@ -290,10 +292,10 @@ func (a *address) UnmarshalText(text []byte) error {
 	return nil
 }
 
-func parseAddress(addr string) (address, error) {
-	var a address
-	if err := a.UnmarshalText([]byte(addr)); err != nil {
-		return address{}, err
+func parseAddress(addr string) (a address, err error) {
+	err = a.UnmarshalText([]byte(addr))
+	if err != nil {
+		return
 	}
-	return a, nil
+	return
 }

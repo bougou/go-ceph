@@ -20,19 +20,21 @@ import (
 // RBD_IMAGE_OPTION_FEATURES_CLEAR, or RbdOptFeaturesSet for FEATURES_SET.
 type RbdImageOptionFn func(*rbd.ImageOptions) error
 
-func rbdImageOptionsFromFns(fns ...RbdImageOptionFn) (*rbd.ImageOptions, error) {
-	opts := rbd.NewRbdImageOptions()
+func rbdImageOptionsFromFns(fns ...RbdImageOptionFn) (opts *rbd.ImageOptions, err error) {
+	opts = rbd.NewRbdImageOptions()
 
 	for _, fn := range fns {
 		if fn == nil {
 			continue
 		}
-		if err := fn(opts); err != nil {
+		callErr := fn(opts)
+		if callErr != nil {
 			opts.Destroy()
-			return nil, err
+			err = callErr
+			return
 		}
 	}
-	return opts, nil
+	return
 }
 
 // RbdOptUint64 sets an arbitrary librbd image option by key (rbd.ImageOption) and

@@ -16,22 +16,15 @@ func (rc *RadosConn) RbdClone(ctx context.Context, srcSnapSpec SnapSpec, dstImag
 }
 
 func RbdClone(ctx context.Context, conn *rados.Conn, srcSnapSpec SnapSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
-	if !srcSnapSpec.Valid() {
-		return errInvalidSnapSpec
+	srcNamespaceName, srcPoolName, srcImageName, srcSnapName, err := Snap(string(srcSnapSpec))
+	if err != nil {
+		return err
 	}
 
-	if !dstImageSpec.Valid() {
-		return errInvalidImageSpec
+	dstNamespaceName, dstPoolName, dstImageName, err := Image(string(dstImageSpec))
+	if err != nil {
+		return err
 	}
-
-	srcPoolName := srcSnapSpec.Pool()
-	srcImageName := srcSnapSpec.Image()
-	srcNamespaceName := srcSnapSpec.Namespace()
-	srcSnapName := srcSnapSpec.Snap()
-
-	dstPoolName := dstImageSpec.Pool()
-	dstImageName := dstImageSpec.Image()
-	dstNamespaceName := dstImageSpec.Namespace()
 
 	if srcPoolName != dstPoolName {
 		return fmt.Errorf("source pool (%s) and destination pool (%s) are different", srcPoolName, dstPoolName)

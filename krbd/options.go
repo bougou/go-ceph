@@ -45,7 +45,7 @@ type Options struct {
 	Namespace   string `krbd:"_pool_ns"`
 }
 
-func (o Options) MarshalText() ([]byte, error) {
+func (o Options) MarshalText() (text []byte, err error) {
 	output := []string{}
 	t := reflect.TypeOf(o)
 	v := reflect.ValueOf(o)
@@ -65,7 +65,8 @@ func (o Options) MarshalText() ([]byte, error) {
 			output = append(output, fmt.Sprintf("%s=%v", tag, v.Field(i)))
 		}
 	}
-	return []byte(strings.Join(output, ",")), nil
+	text = []byte(strings.Join(output, ","))
+	return
 }
 
 func (o Options) String() string {

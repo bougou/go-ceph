@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	ceph "github.com/bougou/go-ceph"
 	"github.com/spf13/cobra"
@@ -22,12 +21,16 @@ Positional arguments:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withConn(context.Background(), func(conn *ceph.RadosConn) error {
 				spec := args[0]
+				_, _, _, snapshotName, err := ceph.ImageOrSnap(spec)
+				if err != nil {
+					return err
+				}
+
 				var (
 					children []ceph.ImageSpec
-					err      error
 				)
 
-				if strings.Contains(spec, "@") {
+				if snapshotName != "" {
 					children, err = conn.RbdSnapChildren(context.Background(), ceph.SnapSpec(spec))
 				} else {
 					children, err = conn.RbdChildren(context.Background(), ceph.ImageSpec(spec))

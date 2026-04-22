@@ -34,9 +34,8 @@ func (s SnapInfo) SizeHuman() string {
 	return sizeHuman(s.Size, 0)
 }
 
-func (rc *RadosConn) RbdSnapExist(ctx context.Context, snapSpec SnapSpec) (bool, error) {
-	var exist bool = false
-	err := rc.Do(ctx, func() error {
+func (rc *RadosConn) RbdSnapExist(ctx context.Context, snapSpec SnapSpec) (exist bool, err error) {
+	err = rc.Do(ctx, func() error {
 		_exist, err := RbdSnapExist(ctx, rc.conn, snapSpec)
 		if err != nil {
 			return err
@@ -44,22 +43,19 @@ func (rc *RadosConn) RbdSnapExist(ctx context.Context, snapSpec SnapSpec) (bool,
 		exist = _exist
 		return nil
 	})
-	return exist, err
+	return
 }
 
-func RbdSnapExist(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (bool, error) {
-	if !snapSpec.Valid() {
-		return false, errInvalidSnapSpec
+func RbdSnapExist(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (exist bool, err error) {
+	namespaceName, poolName, imageName, snapName, err := Snap(string(snapSpec))
+	if err != nil {
+		return
 	}
-
-	poolName := snapSpec.Pool()
-	namespaceName := snapSpec.Namespace()
-	imageName := snapSpec.Image()
-	snapName := snapSpec.Snap()
 
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {
-		return false, fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		err = fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		return
 	}
 	defer ioctx.Destroy()
 
@@ -68,13 +64,16 @@ func RbdSnapExist(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (boo
 	image, err := rbd.OpenImage(ioctx, imageName, snapName)
 	if err != nil {
 		if isErrNotFound(err) {
-			return false, nil
+			err = nil
+			return
 		}
-		return false, fmt.Errorf("failed to open image %s: %w", imageName, err)
+		err = fmt.Errorf("failed to open image %s: %w", imageName, err)
+		return
 	}
 	defer image.Close()
 
-	return true, nil
+	exist = true
+	return
 }
 
 func (rc *RadosConn) RbdSnapCreate(ctx context.Context, snapSpec SnapSpec) error {
@@ -85,14 +84,10 @@ func (rc *RadosConn) RbdSnapCreate(ctx context.Context, snapSpec SnapSpec) error
 }
 
 func RbdSnapCreate(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) error {
-	if !snapSpec.Valid() {
-		return errInvalidSnapSpec
+	namespaceName, poolName, imageName, snapName, err := Snap(string(snapSpec))
+	if err != nil {
+		return err
 	}
-
-	poolName := snapSpec.Pool()
-	imageName := snapSpec.Image()
-	namespaceName := snapSpec.Namespace()
-	snapName := snapSpec.Snap()
 
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {
@@ -129,14 +124,10 @@ func (rc *RadosConn) RbdSnapRemove(ctx context.Context, snapSpec SnapSpec) error
 }
 
 func RbdSnapRemove(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) error {
-	if !snapSpec.Valid() {
-		return errInvalidSnapSpec
+	namespaceName, poolName, imageName, snapName, err := Snap(string(snapSpec))
+	if err != nil {
+		return err
 	}
-
-	poolName := snapSpec.Pool()
-	imageName := snapSpec.Image()
-	namespaceName := snapSpec.Namespace()
-	snapName := snapSpec.Snap()
 
 	if snapName == "" || imageName == "" {
 		return fmt.Errorf("snapshot or image name is empty")
@@ -179,9 +170,8 @@ func RbdSnapRemove(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) err
 	return nil
 }
 
-func (rc *RadosConn) RbdSnapList(ctx context.Context, imageSpec ImageSpec) ([]SnapInfo, error) {
-	var snaps []SnapInfo = nil
-	err := rc.Do(ctx, func() error {
+func (rc *RadosConn) RbdSnapList(ctx context.Context, imageSpec ImageSpec) (snaps []SnapInfo, err error) {
+	err = rc.Do(ctx, func() error {
 		_snaps, err := RbdSnapList(ctx, rc.conn, imageSpec)
 		if err != nil {
 			return err
@@ -189,21 +179,19 @@ func (rc *RadosConn) RbdSnapList(ctx context.Context, imageSpec ImageSpec) ([]Sn
 		snaps = _snaps
 		return nil
 	})
-	return snaps, err
+	return
 }
 
-func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) ([]SnapInfo, error) {
-	if !imageSpec.Valid() {
-		return nil, errInvalidImageSpec
+func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (snapInfos []SnapInfo, err error) {
+	namespaceName, poolName, imageName, err := Image(string(imageSpec))
+	if err != nil {
+		return
 	}
-
-	poolName := imageSpec.Pool()
-	imageName := imageSpec.Image()
-	namespaceName := imageSpec.Namespace()
 
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		err = fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		return
 	}
 	defer ioctx.Destroy()
 
@@ -211,21 +199,24 @@ func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) ([]
 
 	image, err := rbd.OpenImage(ioctx, imageName, rbd.NoSnapshot)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		return
 	}
 	defer image.Close()
 
 	snaps, err := image.GetSnapshotNames()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list snapshots for image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to list snapshots for image (%s): %w", imageName, err)
+		return
 	}
 
-	snapInfos := make([]SnapInfo, len(snaps))
+	snapInfos = make([]SnapInfo, len(snaps))
 	for i, snap := range snaps {
 		snapshot := image.GetSnapshot(snap.Name)
-		protected, err := snapshot.IsProtected()
-		if err != nil {
-			return nil, fmt.Errorf("failed to check if snapshot (%s) is protected for image (%s): %w", snap.Name, imageName, err)
+		protected, protectedErr := snapshot.IsProtected()
+		if protectedErr != nil {
+			err = fmt.Errorf("failed to check if snapshot (%s) is protected for image (%s): %w", snap.Name, imageName, protectedErr)
+			return
 		}
 
 		// Best-effort snapshot timestamp.
@@ -234,7 +225,7 @@ func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) ([]
 		// GetSnapshotNames() to avoid mismatches and treat retrieval failure
 		// as non-fatal by keeping Timestamp as zero value.
 		timestamp := time.Time{}
-		if snapTs, err := image.GetSnapTimestamp(snap.Id); err == nil {
+		if snapTs, snapTsErr := image.GetSnapTimestamp(snap.Id); snapTsErr == nil {
 			timestamp = time.Unix(snapTs.Sec, snapTs.Nsec)
 		}
 
@@ -247,22 +238,19 @@ func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) ([]
 		}
 	}
 
-	return snapInfos, nil
+	return
 }
 
-func RbdSnapInfo(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (*rbd.ImageInfo, error) {
-	if !snapSpec.Valid() {
-		return nil, errInvalidSnapSpec
+func RbdSnapInfo(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (info *rbd.ImageInfo, err error) {
+	namespaceName, poolName, imageName, snapName, err := Snap(string(snapSpec))
+	if err != nil {
+		return
 	}
-
-	poolName := snapSpec.Pool()
-	imageName := snapSpec.Image()
-	namespaceName := snapSpec.Namespace()
-	snapName := snapSpec.Snap()
 
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		err = fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		return
 	}
 	defer ioctx.Destroy()
 
@@ -270,14 +258,16 @@ func RbdSnapInfo(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (*rbd
 
 	image, err := rbd.OpenImage(ioctx, imageName, snapName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		return
 	}
 	defer image.Close()
 
-	info, err := image.Stat()
+	info, err = image.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("failed to stat snapshot (%s) for image (%s): %w", snapName, imageName, err)
+		err = fmt.Errorf("failed to stat snapshot (%s) for image (%s): %w", snapName, imageName, err)
+		return
 	}
 
-	return info, nil
+	return
 }

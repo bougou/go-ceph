@@ -22,7 +22,7 @@ func (rc *RadosConn) RbdStatus(ctx context.Context, imageOrSnapSpec string) (wat
 }
 
 func RbdStatus(ctx context.Context, conn *rados.Conn, imageOrSnapSpec string) (watchers []rbd.ImageWatcher, err error) {
-	namespace, poolName, imageName, snapshotName, err := ImageOrSnap(imageOrSnapSpec)
+	namespaceName, poolName, imageName, snapshotName, err := ImageOrSnap(imageOrSnapSpec)
 	if err != nil {
 		return
 	}
@@ -34,7 +34,7 @@ func RbdStatus(ctx context.Context, conn *rados.Conn, imageOrSnapSpec string) (w
 	}
 	defer ioctx.Destroy()
 
-	ioctx.SetNamespace(namespace)
+	ioctx.SetNamespace(namespaceName)
 
 	snapName := snapshotName
 	if snapName == "" {

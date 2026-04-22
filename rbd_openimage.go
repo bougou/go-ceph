@@ -10,9 +10,8 @@ import (
 
 // RbdOpenImage opens an RBD image and returns it.
 // You should close the image after using it.
-func (rc *RadosConn) RbdOpenImage(ctx context.Context, imageSpec ImageSpec) (*rbd.Image, error) {
-	var image *rbd.Image = nil
-	err := rc.Do(ctx, func() error {
+func (rc *RadosConn) RbdOpenImage(ctx context.Context, imageSpec ImageSpec) (image *rbd.Image, err error) {
+	err = rc.Do(ctx, func() error {
 		_image, err := RbdOpenImage(ctx, rc.conn, imageSpec)
 		if err != nil {
 			return err
@@ -20,33 +19,31 @@ func (rc *RadosConn) RbdOpenImage(ctx context.Context, imageSpec ImageSpec) (*rb
 		image = _image
 		return nil
 	})
-
-	return image, err
+	return
 }
 
 // RbdOpenImage opens an RBD image and returns it.
 // You should close the image after using it.
-func RbdOpenImage(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (*rbd.Image, error) {
-	if !imageSpec.Valid() {
-		return nil, errInvalidImageSpec
+func RbdOpenImage(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (image *rbd.Image, err error) {
+	namespaceName, poolName, imageName, err := Image(string(imageSpec))
+	if err != nil {
+		return
 	}
-
-	poolName := imageSpec.Pool()
-	imageName := imageSpec.Image()
-	namespaceName := imageSpec.Namespace()
 
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		err = fmt.Errorf("failed to open pool (%s): %w", poolName, err)
+		return
 	}
 	defer ioctx.Destroy()
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := rbd.OpenImage(ioctx, imageName, "")
+	image, err = rbd.OpenImage(ioctx, imageName, "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
+		return
 	}
 
-	return image, nil
+	return
 }

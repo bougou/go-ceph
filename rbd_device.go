@@ -8,9 +8,8 @@ import (
 	"github.com/ceph/go-ceph/rados"
 )
 
-func (rc *RadosConn) RbdDeviceList(ctx context.Context) ([]krbd.Device, error) {
-	var devices []krbd.Device = nil
-	err := rc.Do(ctx, func() error {
+func (rc *RadosConn) RbdDeviceList(ctx context.Context) (devices []krbd.Device, err error) {
+	err = rc.Do(ctx, func() error {
 		_devices, err := RbdDeviceList(ctx, rc.conn)
 		if err != nil {
 			return err
@@ -18,46 +17,32 @@ func (rc *RadosConn) RbdDeviceList(ctx context.Context) ([]krbd.Device, error) {
 		devices = _devices
 		return nil
 	})
-	return devices, err
+	return
 }
 
 // RbdDeviceList does not require a connection, so you can pass nil as the connection.
-func RbdDeviceList(ctx context.Context, conn *rados.Conn) ([]krbd.Device, error) {
-	devices, err := krbd.Devices()
+func RbdDeviceList(ctx context.Context, conn *rados.Conn) (devices []krbd.Device, err error) {
+	devices, err = krbd.Devices()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get devices: %w", err)
+		err = fmt.Errorf("failed to get devices: %w", err)
+		return
 	}
-	return devices, nil
+	return
 }
 
 // RbdDeviceFind does not require a connection, so you can pass nil as the connection.
-func RbdDeviceFind[T ~string](ctx context.Context, conn *rados.Conn, spec T) (krbd.Device, error) {
-	s := string(spec)
-	namespace := ""
-	pool := ""
-	image := ""
-	snapshot := ""
-
-	if snapSpec := SnapSpec(s); snapSpec.Valid() {
-		namespace = snapSpec.Namespace()
-		pool = snapSpec.Pool()
-		image = snapSpec.Image()
-		snapshot = snapSpec.Snap()
-	} else {
-		imageSpec := ImageSpec(s)
-		if !imageSpec.Valid() {
-			return krbd.Device{}, errInvalidImageSpec
-		}
-		namespace = imageSpec.Namespace()
-		pool = imageSpec.Pool()
-		image = imageSpec.Image()
-	}
-
-	device, err := krbd.Find(namespace, pool, image, snapshot)
+func RbdDeviceFind[T ~string](ctx context.Context, conn *rados.Conn, spec T) (device krbd.Device, err error) {
+	namespace, pool, image, snapshot, err := ImageOrSnap(string(spec))
 	if err != nil {
-		return krbd.Device{}, fmt.Errorf("failed to find device: %w", err)
+		return
 	}
-	return device, nil
+
+	device, err = krbd.Find(namespace, pool, image, snapshot)
+	if err != nil {
+		err = fmt.Errorf("failed to find device: %w", err)
+		return
+	}
+	return
 }
 
 func (rc *RadosConn) RbdDeviceMap(ctx context.Context, imageOrSnapSpec string, options *krbd.Options) error {
@@ -67,25 +52,9 @@ func (rc *RadosConn) RbdDeviceMap(ctx context.Context, imageOrSnapSpec string, o
 }
 
 func RbdDeviceMap(ctx context.Context, conn *rados.Conn, imageOrSnapSpec string, options *krbd.Options) error {
-	s := string(imageOrSnapSpec)
-	namespace := ""
-	pool := ""
-	image := ""
-	snapshot := ""
-
-	if snapSpec := SnapSpec(s); snapSpec.Valid() {
-		namespace = snapSpec.Namespace()
-		pool = snapSpec.Pool()
-		image = snapSpec.Image()
-		snapshot = snapSpec.Snap()
-	} else {
-		imageSpec := ImageSpec(s)
-		if !imageSpec.Valid() {
-			return errInvalidImageSpec
-		}
-		namespace = imageSpec.Namespace()
-		pool = imageSpec.Pool()
-		image = imageSpec.Image()
+	namespace, pool, image, snapshot, err := ImageOrSnap(imageOrSnapSpec)
+	if err != nil {
+		return err
 	}
 
 	monitors, err := getMonHosts(conn)
@@ -145,25 +114,9 @@ func (rc *RadosConn) RbdDeviceUnmap(ctx context.Context, imageOrSnapSpec string,
 }
 
 func RbdDeviceUnmap(ctx context.Context, conn *rados.Conn, imageOrSnapSpec string, options *krbd.Options) error {
-	s := string(imageOrSnapSpec)
-	namespace := ""
-	pool := ""
-	image := ""
-	snapshot := ""
-
-	if snapSpec := SnapSpec(s); snapSpec.Valid() {
-		namespace = snapSpec.Namespace()
-		pool = snapSpec.Pool()
-		image = snapSpec.Image()
-		snapshot = snapSpec.Snap()
-	} else {
-		imageSpec := ImageSpec(s)
-		if !imageSpec.Valid() {
-			return errInvalidImageSpec
-		}
-		namespace = imageSpec.Namespace()
-		pool = imageSpec.Pool()
-		image = imageSpec.Image()
+	namespace, pool, image, snapshot, err := ImageOrSnap(imageOrSnapSpec)
+	if err != nil {
+		return err
 	}
 
 	monitors, err := getMonHosts(conn)

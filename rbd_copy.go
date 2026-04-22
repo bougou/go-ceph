@@ -16,20 +16,18 @@ func (rc *RadosConn) RbdCopy(ctx context.Context, srcImageSpec ImageSpec, dstIma
 }
 
 func RbdCopy(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
-	if !srcImageSpec.Valid() || !dstImageSpec.Valid() {
-		return errInvalidImageSpec
+	srcNamespaceName, srcPoolName, srcImageName, err := Image(string(srcImageSpec))
+	if err != nil {
+		return err
+	}
+	dstNamespaceName, dstPoolName, dstImageName, err := Image(string(dstImageSpec))
+	if err != nil {
+		return err
 	}
 
 	if srcImageSpec.Equal(dstImageSpec) {
 		return fmt.Errorf("source and destination image spec are the same")
 	}
-
-	srcPoolName := srcImageSpec.Pool()
-	srcImageName := srcImageSpec.Image()
-	srcNamespaceName := srcImageSpec.Namespace()
-	dstPoolName := dstImageSpec.Pool()
-	dstImageName := dstImageSpec.Image()
-	dstNamespaceName := dstImageSpec.Namespace()
 
 	srcIOCtx, err := conn.OpenIOContext(srcPoolName)
 	if err != nil {

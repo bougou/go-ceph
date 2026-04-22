@@ -50,8 +50,9 @@ func parseDeviceTag(field reflect.StructField) (d deviceTag) {
 	return
 }
 
-func parseFeaturesValue(value string) (uint64, error) {
-	return strconv.ParseUint(value, 0, 64)
+func parseFeaturesValue(value string) (features uint64, err error) {
+	features, err = strconv.ParseUint(value, 0, 64)
+	return
 }
 
 func (d *Device) decode(path string) error {
@@ -113,17 +114,19 @@ func (d *Device) FeatureNames() []string {
 }
 
 // Devices iterates over all RBD devices and returns a list of Device structs.
-func Devices() ([]Device, error) {
+func Devices() (devices []Device, err error) {
 	entries, err := os.ReadDir(SysBusRbdDevicesPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read directory: %w", err)
+		err = fmt.Errorf("failed to read directory: %w", err)
+		return
 	}
 
-	devices := make([]Device, len(entries))
+	devices = make([]Device, len(entries))
 	for _, entry := range entries {
-		id, err := strconv.ParseInt(entry.Name(), 10, 0)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse device id from entry name (%s): %w", entry.Name(), err)
+		id, parseErr := strconv.ParseInt(entry.Name(), 10, 0)
+		if parseErr != nil {
+			err = fmt.Errorf("failed to parse device id from entry name (%s): %w", entry.Name(), parseErr)
+			return
 		}
 
 		device := Device{
@@ -131,7 +134,8 @@ func Devices() ([]Device, error) {
 		}
 		err = device.decode(SysBusRbdDevicesPath + "/" + entry.Name())
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode device (%s): %w", entry.Name(), err)
+			err = fmt.Errorf("failed to decode device (%s): %w", entry.Name(), err)
+			return
 		}
 		devices[id] = device
 	}
@@ -140,24 +144,27 @@ func Devices() ([]Device, error) {
 		return devices[i].ID < devices[j].ID
 	})
 
-	return devices, nil
+	return
 }
 
 func (d *Device) DevPath() string {
 	return fmt.Sprintf("%s%d", "/dev/rbd", d.ID)
 }
 
-func Find(namespace, pool, image, snapshot string) (Device, error) {
+func Find(namespace, pool, image, snapshot string) (device Device, err error) {
 	devices, err := Devices()
 	if err != nil {
-		return Device{}, fmt.Errorf("failed to get devices: %w", err)
+		err = fmt.Errorf("failed to get devices: %w", err)
+		return
 	}
 
-	for _, device := range devices {
-		if device.Namespace == namespace && device.Pool == pool && device.Image == image && device.Snapshot == snapshot {
-			return device, nil
+	for _, d := range devices {
+		if d.Namespace == namespace && d.Pool == pool && d.Image == image && d.Snapshot == snapshot {
+			device = d
+			return
 		}
 	}
 
-	return Device{}, fmt.Errorf("device not found")
+	err = fmt.Errorf("device not found")
+	return
 }

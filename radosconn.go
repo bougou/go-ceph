@@ -35,18 +35,21 @@ type RadosConn struct {
 // Error behavior:
 //   - When `lazy` is false, may return an error immediately if config loading fails.
 //   - When `lazy` is true, always returns nil error here
-func NewRadosConn(cephConfFile string, lazy bool) (*RadosConn, error) {
+func NewRadosConn(cephConfFile string, lazy bool) (rc *RadosConn, err error) {
 	var conn *rados.Conn = nil
 
 	if !lazy {
-		_conn, err := newRadosConn(cephConfFile)
+		var newConn *rados.Conn
+		newConn, err = newRadosConn(cephConfFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create rados connection: %w", err)
+			err = fmt.Errorf("failed to create rados connection: %w", err)
+			return
 		}
-		conn = _conn
+		conn = newConn
 	}
 
-	return &RadosConn{conn: conn, cephConfFile: cephConfFile}, nil
+	rc = &RadosConn{conn: conn, cephConfFile: cephConfFile}
+	return
 }
 
 func (rc *RadosConn) WithRetries(retries int) *RadosConn {
@@ -54,23 +57,25 @@ func (rc *RadosConn) WithRetries(retries int) *RadosConn {
 	return rc
 }
 
-func newRadosConn(cephConfFile string) (*rados.Conn, error) {
-	conn, err := rados.NewConn()
+func newRadosConn(cephConfFile string) (conn *rados.Conn, err error) {
+	conn, err = rados.NewConn()
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	if cephConfFile == "" {
-		if err := conn.ReadDefaultConfigFile(); err != nil {
-			return nil, err
+		err = conn.ReadDefaultConfigFile()
+		if err != nil {
+			return
 		}
 	} else {
-		if err := conn.ReadConfigFile(cephConfFile); err != nil {
-			return nil, err
+		err = conn.ReadConfigFile(cephConfFile)
+		if err != nil {
+			return
 		}
 	}
 
-	return conn, nil
+	return
 }
 
 func (rc *RadosConn) Connect() error {
@@ -224,53 +229,56 @@ func (rc *RadosConn) loadMetadata() error {
 	return nil
 }
 
-func getMonAddrs(conn *rados.Conn) ([][]address, error) {
-	monAddrs, err := conn.GetConfigOption("mon_host")
+func getMonAddrs(conn *rados.Conn) (monAddrs [][]address, err error) {
+	rawMonAddrs, err := conn.GetConfigOption("mon_host")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get mon_host: %w", err)
+		err = fmt.Errorf("failed to get mon_host: %w", err)
+		return
 	}
 
 	// The monAddrs is like:
 	// [v2:10.97.145.7:3300,v1:10.97.145.7:6789],[v2:10.97.167.34:3300,v1:10.97.167.34:6789],[v2:10.97.166.34:3300,v1:10.97.166.34:6789]
 
-	return parseAddresses(monAddrs)
+	monAddrs, err = parseAddresses(rawMonAddrs)
+	return
 }
 
 // getMonHosts returns ONLY the hostnames part of the monitors.
-func getMonHosts(conn *rados.Conn) ([]string, error) {
+func getMonHosts(conn *rados.Conn) (out []string, err error) {
 	groups, err := getMonAddrs(conn)
 	if err != nil {
-		return nil, err
+		return
 	}
-	var out []string
 	for _, g := range groups {
 		for _, a := range g {
 			out = append(out, a.host)
 		}
 	}
 	out = lo.Uniq(out)
-	return out, nil
+	return
 }
 
-func getKeyrings(conn *rados.Conn) (map[string]string, error) {
+func getKeyrings(conn *rados.Conn) (keyrings map[string]string, err error) {
 	keyringPath, _ := conn.GetConfigOption("keyring")
 	paths := expandKeyringPaths(keyringPath)
-	keyrings := map[string]string{}
+	keyrings = map[string]string{}
 	for _, path := range paths {
 		clean := filepath.Clean(path)
-		data, err := parseCephKeyring(clean)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
+		data, parseErr := parseCephKeyring(clean)
+		if parseErr != nil {
+			if errors.Is(parseErr, os.ErrNotExist) {
 				continue
 			}
-			return nil, fmt.Errorf("read keyring %s: %w", clean, err)
+			err = fmt.Errorf("read keyring %s: %w", clean, parseErr)
+			return
 		}
 		for entity, secret := range data {
 			keyrings[entity] = secret
 		}
 	}
 	if len(keyrings) == 0 {
-		return nil, fmt.Errorf("no keyring data found after trying: %s", strings.Join(paths, ", "))
+		err = fmt.Errorf("no keyring data found after trying: %s", strings.Join(paths, ", "))
+		return
 	}
-	return keyrings, nil
+	return
 }

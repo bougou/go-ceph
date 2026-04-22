@@ -202,21 +202,25 @@ func newDeviceUnmapCmd() *cobra.Command {
 	return cmd
 }
 
-func parseDeviceIDFromPath(path string) (int, bool) {
+func parseDeviceIDFromPath(path string) (id int, ok bool) {
 	s := strings.TrimSpace(path)
 	if s == "" {
-		return 0, false
+		return
 	}
-	if id, err := strconv.Atoi(s); err == nil {
-		return id, true
+	id, err := strconv.Atoi(s)
+	if err == nil {
+		ok = true
+		return
 	}
 
 	base := filepath.Base(s)
 	if strings.HasPrefix(base, "rbd") {
 		idStr := strings.TrimPrefix(base, "rbd")
-		if id, err := strconv.Atoi(idStr); err == nil {
-			return id, true
+		id, err = strconv.Atoi(idStr)
+		if err == nil {
+			ok = true
+			return
 		}
 	}
-	return 0, false
+	return
 }

@@ -18,7 +18,7 @@ type Image struct {
 
 // MarshalText marshals Image attributes into the string format expected by the krbd add interface, e.g.
 // "${mons} name=${user},secret=${key} ${pool} ${image} ${snap}".
-func (i Image) MarshalText() ([]byte, error) {
+func (i Image) MarshalText() (text []byte, err error) {
 	if i.Snapshot == "" {
 		i.Snapshot = "-"
 	}
@@ -30,7 +30,8 @@ func (i Image) MarshalText() ([]byte, error) {
 		}
 	}
 
-	return []byte(fmt.Sprintf("%s %s %s %s %s", strings.Join(i.Monitors, ","), options, i.Pool, i.Image, i.Snapshot)), nil
+	text = []byte(fmt.Sprintf("%s %s %s %s %s", strings.Join(i.Monitors, ","), options, i.Pool, i.Image, i.Snapshot))
+	return
 }
 
 func (i Image) String() string {
