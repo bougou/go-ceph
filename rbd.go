@@ -139,3 +139,49 @@ func (v SnapSpec) Valid() bool {
 func (v SnapSpec) Equal(other SnapSpec) bool {
 	return v.clean() == other.clean()
 }
+
+// ImageOrSnap parses an image or snapshot spec and returns the namespace, pool, image, and snapshot.
+// If the returned snapshot is empty, it means the spec is an image spec.
+func ImageOrSnap(imageOrSnapSpec string) (namespace string, pool string, image string, snapshot string, err error) {
+	s := string(imageOrSnapSpec)
+
+	if snapSpec := SnapSpec(s); snapSpec.Valid() {
+		namespace = snapSpec.Namespace()
+		pool = snapSpec.Pool()
+		image = snapSpec.Image()
+		snapshot = snapSpec.Snap()
+	} else if imageSpec := ImageSpec(s); imageSpec.Valid() {
+		namespace = imageSpec.Namespace()
+		pool = imageSpec.Pool()
+		image = imageSpec.Image()
+	} else {
+		err = fmt.Errorf("invalid image or snapshot spec: %s", s)
+		return
+	}
+	return
+}
+
+func Image(imageSpec string) (namespace string, pool string, image string, err error) {
+	if imageSpec := ImageSpec(imageSpec); imageSpec.Valid() {
+		namespace = imageSpec.Namespace()
+		pool = imageSpec.Pool()
+		image = imageSpec.Image()
+	} else {
+		err = fmt.Errorf("invalid image spec: %s", imageSpec)
+		return
+	}
+	return
+}
+
+func Snap(snapSpec string) (namespace string, pool string, image string, snapshot string, err error) {
+	if snapSpec := SnapSpec(snapSpec); snapSpec.Valid() {
+		namespace = snapSpec.Namespace()
+		pool = snapSpec.Pool()
+		image = snapSpec.Image()
+		snapshot = snapSpec.Snap()
+	} else {
+		err = fmt.Errorf("invalid snap spec: %s", snapSpec)
+		return
+	}
+	return
+}
