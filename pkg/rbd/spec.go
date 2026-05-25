@@ -186,3 +186,71 @@ func Snap(snapSpec string) (namespace string, pool string, image string, snapsho
 	}
 	return
 }
+
+// PoolSpec is a pool reference in the form "pool[/namespace]".
+type PoolSpec string
+
+func NewPoolSpec(poolName string, namespace string) PoolSpec {
+	if namespace == "" {
+		return PoolSpec(poolName)
+	}
+	return PoolSpec(fmt.Sprintf("%s/%s", poolName, namespace))
+}
+
+func (p PoolSpec) clean() string {
+	s := string(p)
+	s = strings.TrimSpace(s)
+	s = strings.Trim(s, "/")
+	return s
+}
+
+func (p PoolSpec) Pool() string {
+	parts := strings.Split(p.clean(), "/")
+	if len(parts) == 0 || parts[0] == "" {
+		return DefaultPoolName
+	}
+	return parts[0]
+}
+
+func (p PoolSpec) Namespace() string {
+	parts := strings.Split(p.clean(), "/")
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[1]
+}
+
+func (p PoolSpec) Valid() bool {
+	s := p.clean()
+	if s == "" {
+		return false
+	}
+	if strings.Contains(s, "@") {
+		return false
+	}
+	parts := strings.Split(s, "/")
+	if len(parts) > 2 {
+		return false
+	}
+	return p.Pool() != ""
+}
+
+func (p PoolSpec) Equal(other PoolSpec) bool {
+	return p.clean() == other.clean()
+}
+
+// Pool parses a pool spec ("pool[/namespace]") and returns its components.
+func Pool(poolSpec string) (pool string, namespace string, err error) {
+	spec := strings.TrimSpace(poolSpec)
+	if strings.Contains(spec, "@") {
+		err = fmt.Errorf("invalid pool spec: %s", poolSpec)
+		return
+	}
+	ps := PoolSpec(spec)
+	pool = ps.Pool()
+	namespace = ps.Namespace()
+	if pool == "" {
+		err = fmt.Errorf("invalid pool spec: %s", poolSpec)
+	}
+	return
+}

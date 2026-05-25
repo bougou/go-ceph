@@ -180,6 +180,30 @@ func (rc *RadosConn) RbdSnapList(ctx context.Context, imageSpec rbd.ImageSpec) (
 	return
 }
 
+func (rc *RadosConn) RbdList(ctx context.Context, poolSpec rbd.PoolSpec) (images []string, err error) {
+	err = rc.Do(ctx, func() error {
+		_images, err := rbd.RbdList(ctx, rc.conn, poolSpec)
+		if err != nil {
+			return err
+		}
+		images = _images
+		return nil
+	})
+	return
+}
+
+func (rc *RadosConn) RbdListLong(ctx context.Context, poolSpec rbd.PoolSpec) (entries []rbd.ImageListEntry, err error) {
+	err = rc.Do(ctx, func() error {
+		_entries, err := rbd.RbdListLong(ctx, rc.conn, poolSpec)
+		if err != nil {
+			return err
+		}
+		entries = _entries
+		return nil
+	})
+	return
+}
+
 func (rc *RadosConn) RbdStatus(ctx context.Context, imageOrSnapSpec string) (watchers []cephrbd.ImageWatcher, err error) {
 	err = rc.Do(ctx, func() error {
 		_watchers, err := rbd.RbdStatus(ctx, rc.conn, imageOrSnapSpec)
