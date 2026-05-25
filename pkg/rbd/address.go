@@ -74,14 +74,17 @@ func MarshalAddresses2(addrs [][]address) string {
 	return b.String()
 }
 
-// monAddrs examples:
+// parseAddresses parses a mon_addrs string into monitor groups.
+//
+// Examples:
 //   - Three monitor groups (bracketed): [v2:10.97.145.7:3300,v1:10.97.145.7:6789],[v2:10.97.167.34:3300,v1:10.97.167.34:6789],[v2:10.97.166.34:3300,v1:10.97.166.34:6789]
 //   - One group without outer brackets: v2:10.97.145.7:3300,v1:10.97.145.7:6789
 //   - Flat list across monitors (no brackets): v2:a:3300,v1:a:6789,v2:b:3300,v1:b:6789 — same host endpoints are merged into one inner slice, in first-seen host order.
 //
-// Return value: outer slice = one logical monitor per element; inner slice = parsed endpoints for that monitor (e.g. v1 and v2 to the same IP).
+// The outer slice has one element per logical monitor; the inner slice holds
+// endpoints for that monitor (e.g. v1 and v2 to the same IP).
 //
-// see: https://docs.ceph.com/en/nautilus/rados/configuration/msgr2/#address-formats
+// See https://docs.ceph.com/en/nautilus/rados/configuration/msgr2/#address-formats
 func parseAddresses(addrs string) (out [][]address, err error) {
 	s := strings.TrimSpace(addrs)
 	if s == "" {
@@ -110,7 +113,7 @@ func parseAddresses(addrs string) (out [][]address, err error) {
 	return
 }
 
-// formatMonitorAddr renders a parsed address in mon_host / krbd style.
+// formatMonitorAddr renders a parsed address in mon_host or krbd style.
 
 // splitTopLevelMonGroups splits mon_host into bracket-separated monitor groups.
 // Commas inside "[...]" (e.g. IPv6) are not group separators.
@@ -196,10 +199,8 @@ func groupMonTokensByHost(tokens []string) (out [][]address, err error) {
 	return
 }
 
-// addr can be:
-//   - full path format [type:]host[:port]/[nonce]
-//   - e.g. like v2:10.0.0.10:3300/0
-//   - the 'type', 'port', 'nonce' are optional.
+// UnmarshalText parses a monitor address token in the form [type:]host[:port]/[nonce],
+// for example v2:10.0.0.10:3300/0. Type, port, and nonce are optional.
 func (a *address) UnmarshalText(text []byte) error {
 	parsed := address{
 		addrType: addrTypeAny,

@@ -7,10 +7,10 @@ import (
 	"strings"
 )
 
-// Options is per client instance and per mapping (block device) rbd device map options.
-// krbd tag is the string of the option passed via sysfs.
+// Options holds per-client and per-device krbd map options.
+// Option names correspond to the krbd struct field tags passed via sysfs.
 //
-//   - Reference: https://docs.ceph.com/docs/master/man/8/rbd/#kernel-rbd-krbd-options
+// See https://docs.ceph.com/docs/master/man/8/rbd/#kernel-rbd-krbd-options
 type Options struct {
 	// Client Options
 	Fsid                     string `krbd:"fsid"`
@@ -30,7 +30,7 @@ type Options struct {
 	OSDIdleTTL               int    `krbd:"osd_idlettl"`
 
 	// RBD Block Options
-	Force       bool   `krbd:"force"` // Force specifies that the unmap operation should be forced; this option is only recognized and used during Unmap operations.
+	Force       bool   `krbd:"force"` // Force requests a forced unmap; only used by Unmap.
 	ReadWrite   bool   `krbd:"rw"`
 	ReadOnly    bool   `krbd:"ro"`
 	QueueDepth  int    `krbd:"queue_depth"`
@@ -77,8 +77,8 @@ func (o Options) String() string {
 	return string(b)
 }
 
-// Decode parses a comma separated option string (opt1,opt2=val,...) into Options.
-// Each option key is resolved from the struct field `krbd` tag.
+// UnmarshalText parses a comma-separated option string (opt1,opt2=val,...) into o.
+// Each option key is resolved from the struct field krbd tag.
 func (o *Options) UnmarshalText(text []byte) error {
 	if o == nil {
 		return fmt.Errorf("options is nil")

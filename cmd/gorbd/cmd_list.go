@@ -80,7 +80,7 @@ Positional arguments:
 	return cmd
 }
 
-// resolvePoolSpec merges the positional <pool-spec> with the --pool / --namespace flags.
+// resolvePoolSpec merges the positional pool-spec with the --pool and --namespace flags.
 // Positional wins if it carries a pool name; --namespace can still extend a positional
 // that omits its namespace.
 func resolvePoolSpec(args []string, poolFlag, nsFlag string) (rbd.PoolSpec, error) {
@@ -163,7 +163,7 @@ func writeJSON(w io.Writer, v any, pretty bool) error {
 	return enc.Encode(v)
 }
 
-// xmlImage and xmlEntries are small wrappers so encoding/xml emits a stable root element.
+// xmlImage and xmlEntries are XML wrappers so encoding/xml emits a stable root element.
 type xmlImage struct {
 	XMLName xml.Name `xml:"image"`
 	Name    string   `xml:",chardata"`

@@ -10,7 +10,7 @@ import (
 )
 
 // secretFromKeyringsForAdmin returns the key for the default RADOS user (client.admin).
-// Ceph keyring sections are usually named "client.admin"; some configs use "admin".
+// Ceph keyring sections are usually named "client.admin"; some configs use "admin" instead.
 func secretFromKeyringsForAdmin(keyrings map[string]string) (secret string, ok bool) {
 	if s, ok := keyrings["client.admin"]; ok && s != "" {
 		return s, true

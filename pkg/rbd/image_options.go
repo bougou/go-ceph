@@ -6,14 +6,14 @@ import (
 	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
-// RbdImageOptionFn configures a *cephrbd.ImageOptions before create / clone / copy.
+// RbdImageOptionFn configures a *cephrbd.ImageOptions before create, clone, or copy.
 // Functions run in order; later entries override earlier ones for the same option
-// keys. Unset keys use librbd / cluster defaults (same as passing an empty
+// keys. Unset keys use librbd or cluster defaults (same as passing an empty
 // cephrbd.ImageOptions to go-ceph).
 //
-// For any key not covered by RbdOpt* helpers, use RbdOptUint64 / RbdOptString with
+// For any key not covered by RbdOpt* helpers, use RbdOptUint64 or RbdOptString with
 // github.com/ceph/go-ceph/rbd.ImageOption constants, or pass a custom func that calls
-// (*cephrbd.ImageOptions).SetUint64 / SetString.
+// (*cephrbd.ImageOptions).SetUint64 or SetString.
 //
 // Feature bits: use RbdOptFeatures for the full mask, RbdOptDefault for
 // cephrbd.RbdFeaturesDefault plus format 2, RbdOptFeaturesClear for
@@ -107,7 +107,7 @@ func RbdOptDataPool(pool string) RbdImageOptionFn {
 	}
 }
 
-// RbdOptCloneFormat sets RBD_IMAGE_OPTION_CLONE_FORMAT (clone / copy clone step).
+// RbdOptCloneFormat sets RBD_IMAGE_OPTION_CLONE_FORMAT (clone or copy-clone step).
 func RbdOptCloneFormat(format uint64) RbdImageOptionFn {
 	return func(o *cephrbd.ImageOptions) error {
 		return o.SetUint64(cephrbd.ImageOptionCloneFormat, format)

@@ -11,7 +11,7 @@ var (
 	errInvalidSnapSpec  = errors.New("invalid snap spec")
 )
 
-// ErrPlatformNotSupported is returned when RBD operations are called on unsupported platforms
+// ErrPlatformNotSupported is returned when RBD operations are called on unsupported platforms.
 var ErrPlatformNotSupported = errors.New("RBD is not supported on this platform")
 
 func isErrNotFound(err error) bool {

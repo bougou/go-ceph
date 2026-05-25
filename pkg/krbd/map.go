@@ -7,8 +7,8 @@ import (
 	"strconv"
 )
 
-// Map the RBD image via the krbd interface. An open io.Writer is required
-// typically to /sys/bus/rbd/add or /sys/bus/rbd/add_single_major
+// Map writes a map request for this image to w. w is typically an open file for
+// /sys/bus/rbd/add or /sys/bus/rbd/add_single_major.
 func (i *Image) Map(w io.Writer) error {
 	if len(i.Monitors) == 0 {
 		return errors.New("no monitors defined")
@@ -32,9 +32,8 @@ func (i *Image) Map(w io.Writer) error {
 	return nil
 }
 
-// Unmap a RBD device via the krbd interface. DevID must be defined.
-// An open io.Writer is required typically to /sys/bus/rbd/remove
-// or /sys/bus/rbd/remove_single_major.
+// Unmap writes an unmap request for DevID to w. w is typically an open file for
+// /sys/bus/rbd/remove or /sys/bus/rbd/remove_single_major.
 func (i *Image) Unmap(w io.Writer) error {
 	cmd := strconv.Itoa(i.DevID)
 	if i.Options != nil && i.Options.Force {

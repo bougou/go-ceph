@@ -7,7 +7,7 @@ import (
 
 // Image is a Ceph RBD image.
 type Image struct {
-	DevID     int      // Unmap only
+	DevID     int      // DevID is the krbd device id; required for Unmap.
 	Monitors  []string // Monitor endpoints for krbd map requests; host-only or v1-style host:port is generally the most compatible input.
 	Namespace string
 	Pool      string
@@ -16,7 +16,7 @@ type Image struct {
 	Options   *Options
 }
 
-// MarshalText marshals Image attributes into the string format expected by the krbd add interface, e.g.
+// MarshalText encodes the image as a krbd map line, for example:
 // "${mons} name=${user},secret=${key} ${pool} ${image} ${snap}".
 func (i Image) MarshalText() (text []byte, err error) {
 	if i.Snapshot == "" {

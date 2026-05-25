@@ -20,15 +20,14 @@ type RadosConn struct {
 
 // NewRadosConn creates a RADOS connection wrapper.
 //
-// The `cephConfFile` specifies the Ceph config file path; if empty, the default config is used.
+// cephConfFile is the Ceph config file path; if empty, the default config is used.
 //
-// The `lazy` controls whether the underlying connection is created immediately.
-//   - When `lazy` is false, the the config is loaded and the connection is created immediately.
-//   - When `lazy` is true, config loading and connection creation are deferred to the first `Connect`/`Do` call.
+// If lazy is false, the config is loaded and the connection is created immediately.
+// If lazy is true, config loading and connection creation are deferred until the
+// first Connect or Do call.
 //
-// Error behavior:
-//   - When `lazy` is false, may return an error immediately if config loading fails.
-//   - When `lazy` is true, always returns nil error here
+// When lazy is false, an error may be returned if config loading fails.
+// When lazy is true, this constructor always returns a nil error.
 func NewRadosConn(cephConfFile string, lazy bool) (rc *RadosConn, err error) {
 	var conn *cephrados.Conn = nil
 
@@ -98,7 +97,7 @@ func (rc *RadosConn) Reconnect() error {
 	return rc.Connect()
 }
 
-// ensureConnected checks connection health and reconnects if necessary
+// ensureConnected checks connection health and reconnects if necessary.
 func (rc *RadosConn) ensureConnected() error {
 	rc.mu.RLock()
 	conn := rc.conn
@@ -118,7 +117,7 @@ func (rc *RadosConn) ensureConnected() error {
 	return nil
 }
 
-// isConnectionError checks if the error is related to connection issues
+// isConnectionError reports whether err indicates a connection problem.
 func isConnectionError(err error) bool {
 	if err == nil {
 		return false
@@ -154,7 +153,7 @@ func (rc *RadosConn) Close() error {
 	return nil
 }
 
-// DoWithRetry executes an operation with automatic reconnection on failure
+// Do runs operation with automatic reconnection when a connection error occurs.
 func (rc *RadosConn) Do(ctx context.Context, operation func() error) error {
 	var lastErr error
 

@@ -9,7 +9,7 @@ import (
 )
 
 // ImageListEntry is one entry in the long-form image list output.
-// One entry per image; one additional entry per snapshot of that image.
+// One entry per image, plus one additional entry per snapshot of that image.
 type ImageListEntry struct {
 	Image     string `json:"image" xml:"image"`
 	Snapshot  string `json:"snapshot,omitempty" xml:"snapshot,omitempty"`
@@ -44,7 +44,7 @@ func RbdList(ctx context.Context, conn *cephrados.Conn, poolSpec PoolSpec) (imag
 }
 
 // RbdListLong returns one entry per image (and one extra entry per snapshot)
-// with size / format / parent / protection info, equivalent to `rbd ls -l`.
+// with size, format, parent, and protection info, equivalent to "rbd ls -l".
 func RbdListLong(ctx context.Context, conn *cephrados.Conn, poolSpec PoolSpec) (entries []ImageListEntry, err error) {
 	poolName, namespaceName, err := Pool(string(poolSpec))
 	if err != nil {

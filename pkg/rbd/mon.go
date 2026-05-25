@@ -25,7 +25,7 @@ func getMonAddrs(conn *cephrados.Conn) (monAddrs [][]address, err error) {
 	return
 }
 
-// getMonHosts returns ONLY the hostnames part of the monitors.
+// getMonHosts returns only the hostnames from the monitor list.
 func getMonHosts(conn *cephrados.Conn) (out []string, err error) {
 	groups, err := getMonAddrs(conn)
 	if err != nil {

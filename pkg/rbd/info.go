@@ -45,7 +45,7 @@ func RbdInfo(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) (in
 }
 
 // ImageInfo contains detailed information about an RBD image,
-// equivalent to the output of `rbd info <image>`.
+// equivalent to the output of "rbd info <image>".
 type ImageInfo struct {
 	// Name is the name of the RBD image
 	Name string `json:"name,omitempty"`
@@ -96,8 +96,8 @@ type ImageInfo struct {
 	Overlap uint64 `json:"overlap,omitempty,omitzero"`
 }
 
-// sizeHuman formats a size value in bytes into a human-readable string with appropriate units (e.g., "20 GiB").
-// The input 'size' should be specified in bytes. The 'precision' parameter determines the number of decimal places to display (if > 0).
+// sizeHuman formats a byte size into a human-readable string with appropriate units (e.g., "20 GiB").
+// precision is the number of decimal places to show; zero means no fractional part.
 func sizeHuman(size uint64, precision int) string {
 	const (
 		KiB = 1024
@@ -135,7 +135,7 @@ func sizeHuman(size uint64, precision int) string {
 	return fmt.Sprintf(format, value) + " " + unit
 }
 
-// ObjectSizeHuman returns a human-readable object size string (e.g., "4 MiB")
+// ObjectSizeHuman returns a human-readable object size string (e.g., "4 MiB").
 func (r *ImageInfo) ObjectSizeHuman() string {
 	const (
 		KiB = 1024
@@ -152,7 +152,7 @@ func (r *ImageInfo) ObjectSizeHuman() string {
 	}
 }
 
-// String returns a formatted string representation similar to `rbd info` output
+// String returns a formatted string representation similar to "rbd info" output.
 func (r *ImageInfo) String() string {
 	out := fmt.Sprintf(`rbd image '%s':
 	size %s in %d objects

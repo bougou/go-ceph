@@ -6,10 +6,13 @@ import (
 )
 
 const (
-	// Default pool name
+	// DefaultPoolName is the default RADOS pool when a spec omits the pool segment.
 	DefaultPoolName string = "rbd"
 )
 
+// ImageSpec is an RBD image reference in the form "[pool[/namespace]/]image".
+// A single segment names the image and uses DefaultPoolName for the pool.
+// Valid reports whether the spec has no "@" and non-empty pool and image names.
 type ImageSpec string
 
 func NewImageSpec(poolName string, imageName string) ImageSpec {
@@ -68,6 +71,8 @@ func (i ImageSpec) Equal(other ImageSpec) bool {
 	return i.clean() == other.clean()
 }
 
+// SnapSpec is an RBD snapshot reference in the form "[pool[/namespace]/]image@snap".
+// Valid reports whether the spec contains exactly one "@" and non-empty pool, image, and snap names.
 type SnapSpec string
 
 func NewSnapSpec(poolName string, imageName string, snapName string) SnapSpec {

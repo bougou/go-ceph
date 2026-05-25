@@ -21,7 +21,7 @@ type Device struct {
 	Pool      string `krbd:"pool"`
 	Namespace string `krbd:"pool_ns,optional"`
 	Image     string `krbd:"name"`
-	Snapshot  string `krbd:"current_snap,optional"` // Note, the kernel may expose the snapshot name as "-" when there is no snapshot. But we decode it to empty string to represent no snapshot.
+	Snapshot  string `krbd:"current_snap,optional"` // Snapshot name; sysfs uses "-" when none, decoded as empty.
 	Size      string `krbd:"size"`
 	Features  uint64 `krbd:"features"`
 }
@@ -113,7 +113,7 @@ func (d *Device) FeatureNames() []string {
 	return names
 }
 
-// Devices iterates over all RBD devices and returns a list of Device structs.
+// Devices returns all mapped krbd devices listed under sysfs.
 func Devices() (devices []Device, err error) {
 	entries, err := os.ReadDir(SysBusRbdDevicesPath)
 	if err != nil {

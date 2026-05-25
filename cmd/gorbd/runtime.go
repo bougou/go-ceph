@@ -7,7 +7,7 @@ import (
 	"github.com/bougou/go-ceph/pkg/rados"
 )
 
-// withConn is a helper function to run a function with a connection.
+// withConn runs fn with a RADOS connection.
 func withConn(ctx context.Context, fn func(*rados.RadosConn) error) error {
 	conn, err := rados.NewRadosConn(globalOpts.cephConf, false)
 	if err != nil {
@@ -18,7 +18,7 @@ func withConn(ctx context.Context, fn func(*rados.RadosConn) error) error {
 	return fn(conn)
 }
 
-// withoutConn is a helper function to run a function without a connection.
+// withoutConn runs fn without opening a RADOS connection.
 func withoutConn(ctx context.Context, fn func() error) error {
 	return fn()
 }

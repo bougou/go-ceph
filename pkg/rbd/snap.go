@@ -9,9 +9,9 @@ import (
 	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
-// RbdSnapInfo is an enriched snapshot model for API/CLI output.
-// NOTE: official go-ceph currently exposes snapshot ID/Name/Size only.
-// Snapshot creation timestamp is kept as an optional field for future support.
+// SnapInfo is an enriched snapshot model for API and CLI output.
+// Note: official go-ceph currently exposes snapshot ID, Name, and Size only.
+// Timestamp is reserved for when creation time becomes available.
 type SnapInfo struct {
 	// ID is the internal snapshot ID
 	ID uint64 `json:"id"`

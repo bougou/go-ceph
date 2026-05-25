@@ -1,3 +1,6 @@
+// Package krbd provides access to the Linux kernel RBD (krbd) sysfs interface.
+//
+// See https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-rbd
 package krbd
 
 import (
@@ -10,8 +13,6 @@ import (
 	"reflect"
 	"strings"
 )
-
-// Reference: https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-rbd
 
 const SysBusRbdPath = "/sys/bus/rbd"
 const SysModuleRbdParametersPath = "/sys/module/rbd/parameters"
