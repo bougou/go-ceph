@@ -1,3 +1,4 @@
 examples/
 cmd/gorbd/gorbd
 cmd/gorbd/gorbd.exe
+.claude

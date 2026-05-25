@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	ceph "github.com/bougou/go-ceph"
+	"github.com/bougou/go-ceph/pkg/rados"
+	"github.com/bougou/go-ceph/pkg/rbd"
 	"github.com/spf13/cobra"
 )
 
@@ -19,21 +20,21 @@ Positional arguments:
                         ([<pool-name>/[<namespace>/]]<image-name>[@<snap-name>])`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withConn(context.Background(), func(conn *ceph.RadosConn) error {
+			return withConn(context.Background(), func(conn *rados.RadosConn) error {
 				spec := args[0]
-				_, _, _, snapshotName, err := ceph.ImageOrSnap(spec)
+				_, _, _, snapshotName, err := rbd.ImageOrSnap(spec)
 				if err != nil {
 					return err
 				}
 
 				var (
-					children []ceph.ImageSpec
+					children []rbd.ImageSpec
 				)
 
 				if snapshotName != "" {
-					children, err = conn.RbdSnapChildren(context.Background(), ceph.SnapSpec(spec))
+					children, err = conn.RbdSnapChildren(context.Background(), rbd.SnapSpec(spec))
 				} else {
-					children, err = conn.RbdChildren(context.Background(), ceph.ImageSpec(spec))
+					children, err = conn.RbdChildren(context.Background(), rbd.ImageSpec(spec))
 				}
 				if err != nil {
 					return err

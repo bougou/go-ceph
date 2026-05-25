@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	ceph "github.com/bougou/go-ceph"
+	"github.com/bougou/go-ceph/pkg/rados"
 )
 
 // withConn is a helper function to run a function with a connection.
-func withConn(ctx context.Context, fn func(*ceph.RadosConn) error) error {
-	conn, err := ceph.NewRadosConn(globalOpts.cephConf, false)
+func withConn(ctx context.Context, fn func(*rados.RadosConn) error) error {
+	conn, err := rados.NewRadosConn(globalOpts.cephConf, false)
 	if err != nil {
 		return fmt.Errorf("failed to create rados connection: %w", err)
 	}

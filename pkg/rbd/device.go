@@ -1,27 +1,15 @@
-package ceph
+package rbd
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/bougou/go-ceph/krbd"
-	"github.com/ceph/go-ceph/rados"
+	"github.com/bougou/go-ceph/pkg/krbd"
+	cephrados "github.com/ceph/go-ceph/rados"
 )
 
-func (rc *RadosConn) RbdDeviceList(ctx context.Context) (devices []krbd.Device, err error) {
-	err = rc.Do(ctx, func() error {
-		_devices, err := RbdDeviceList(ctx, rc.conn)
-		if err != nil {
-			return err
-		}
-		devices = _devices
-		return nil
-	})
-	return
-}
-
 // RbdDeviceList does not require a connection, so you can pass nil as the connection.
-func RbdDeviceList(ctx context.Context, conn *rados.Conn) (devices []krbd.Device, err error) {
+func RbdDeviceList(ctx context.Context, conn *cephrados.Conn) (devices []krbd.Device, err error) {
 	devices, err = krbd.Devices()
 	if err != nil {
 		err = fmt.Errorf("failed to get devices: %w", err)
@@ -31,7 +19,7 @@ func RbdDeviceList(ctx context.Context, conn *rados.Conn) (devices []krbd.Device
 }
 
 // RbdDeviceFind does not require a connection, so you can pass nil as the connection.
-func RbdDeviceFind[T ~string](ctx context.Context, conn *rados.Conn, spec T) (device krbd.Device, err error) {
+func RbdDeviceFind[T ~string](ctx context.Context, conn *cephrados.Conn, spec T) (device krbd.Device, err error) {
 	namespace, pool, image, snapshot, err := ImageOrSnap(string(spec))
 	if err != nil {
 		return
@@ -45,13 +33,7 @@ func RbdDeviceFind[T ~string](ctx context.Context, conn *rados.Conn, spec T) (de
 	return
 }
 
-func (rc *RadosConn) RbdDeviceMap(ctx context.Context, imageOrSnapSpec string, options *krbd.Options) error {
-	return rc.Do(ctx, func() error {
-		return RbdDeviceMap(ctx, rc.conn, imageOrSnapSpec, options)
-	})
-}
-
-func RbdDeviceMap(ctx context.Context, conn *rados.Conn, imageOrSnapSpec string, options *krbd.Options) error {
+func RbdDeviceMap(ctx context.Context, conn *cephrados.Conn, imageOrSnapSpec string, options *krbd.Options) error {
 	namespace, pool, image, snapshot, err := ImageOrSnap(imageOrSnapSpec)
 	if err != nil {
 		return err
@@ -107,13 +89,7 @@ func RbdDeviceMap(ctx context.Context, conn *rados.Conn, imageOrSnapSpec string,
 	return nil
 }
 
-func (rc *RadosConn) RbdDeviceUnmap(ctx context.Context, imageOrSnapSpec string, options *krbd.Options) error {
-	return rc.Do(ctx, func() error {
-		return RbdDeviceUnmap(ctx, rc.conn, imageOrSnapSpec, options)
-	})
-}
-
-func RbdDeviceUnmap(ctx context.Context, conn *rados.Conn, imageOrSnapSpec string, options *krbd.Options) error {
+func RbdDeviceUnmap(ctx context.Context, conn *cephrados.Conn, imageOrSnapSpec string, options *krbd.Options) error {
 	namespace, pool, image, snapshot, err := ImageOrSnap(imageOrSnapSpec)
 	if err != nil {
 		return err
@@ -164,13 +140,7 @@ func RbdDeviceUnmap(ctx context.Context, conn *rados.Conn, imageOrSnapSpec strin
 	return nil
 }
 
-func (rc *RadosConn) RbdDeviceUnmapByID(ctx context.Context, devID int, options *krbd.Options) error {
-	return rc.Do(ctx, func() error {
-		return RbdDeviceUnmapByID(ctx, rc.conn, devID, options)
-	})
-}
-
-func RbdDeviceUnmapByID(ctx context.Context, conn *rados.Conn, devID int, options *krbd.Options) error {
+func RbdDeviceUnmapByID(ctx context.Context, conn *cephrados.Conn, devID int, options *krbd.Options) error {
 	monitors, err := getMonHosts(conn)
 	if err != nil {
 		return fmt.Errorf("failed to get monitor hosts: %w", err)

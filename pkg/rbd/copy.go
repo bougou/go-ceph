@@ -1,21 +1,14 @@
-package ceph
+package rbd
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ceph/go-ceph/rados"
-	"github.com/ceph/go-ceph/rbd"
+	cephrados "github.com/ceph/go-ceph/rados"
+	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
-func (rc *RadosConn) RbdCopy(ctx context.Context, srcImageSpec ImageSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
-	err := rc.Do(ctx, func() error {
-		return RbdCopy(ctx, rc.conn, srcImageSpec, dstImageSpec, optFns...)
-	})
-	return err
-}
-
-func RbdCopy(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
+func RbdCopy(ctx context.Context, conn *cephrados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
 	srcNamespaceName, srcPoolName, srcImageName, err := Image(string(srcImageSpec))
 	if err != nil {
 		return err
@@ -37,7 +30,7 @@ func RbdCopy(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstI
 
 	srcIOCtx.SetNamespace(srcNamespaceName)
 
-	srcImage, err := rbd.OpenImage(srcIOCtx, srcImageName, rbd.NoSnapshot)
+	srcImage, err := cephrbd.OpenImage(srcIOCtx, srcImageName, cephrbd.NoSnapshot)
 	if err != nil {
 		return fmt.Errorf("failed to open source image (%s): %w", srcImageName, err)
 	}
@@ -45,7 +38,7 @@ func RbdCopy(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstI
 
 	tempSnapName := fmt.Sprintf("%s__temp_for_copy__", dstImageName)
 
-	var tempSnap *rbd.Snapshot = nil
+	var tempSnap *cephrbd.Snapshot = nil
 
 	// Snapshot existence is checked via image snapshot ID lookup.
 	if _, err := srcImage.GetSnapID(tempSnapName); err != nil {
@@ -91,12 +84,12 @@ func RbdCopy(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstI
 	}
 	defer imageOpts.Destroy()
 
-	if err := rbd.CloneFromImage(srcImage, tempSnapName, dstIOCtx, dstImageName, imageOpts); err != nil {
+	if err := cephrbd.CloneFromImage(srcImage, tempSnapName, dstIOCtx, dstImageName, imageOpts); err != nil {
 		return fmt.Errorf("failed to clone destination image (%s) from snapshot (%s): %w", dstImageName, tempSnapName, err)
 	}
 
 	// flatten the destination image
-	dstImage, err := rbd.OpenImage(dstIOCtx, dstImageName, "")
+	dstImage, err := cephrbd.OpenImage(dstIOCtx, dstImageName, "")
 	if err != nil {
 		return fmt.Errorf("failed to open destination image (%s): %w", dstImageName, err)
 	}

@@ -1,12 +1,12 @@
-package ceph
+package rbd
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/ceph/go-ceph/rados"
-	"github.com/ceph/go-ceph/rbd"
+	cephrados "github.com/ceph/go-ceph/rados"
+	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
 // RbdSnapInfo is an enriched snapshot model for API/CLI output.
@@ -34,19 +34,7 @@ func (s SnapInfo) SizeHuman() string {
 	return sizeHuman(s.Size, 0)
 }
 
-func (rc *RadosConn) RbdSnapExist(ctx context.Context, snapSpec SnapSpec) (exist bool, err error) {
-	err = rc.Do(ctx, func() error {
-		_exist, err := RbdSnapExist(ctx, rc.conn, snapSpec)
-		if err != nil {
-			return err
-		}
-		exist = _exist
-		return nil
-	})
-	return
-}
-
-func RbdSnapExist(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (exist bool, err error) {
+func RbdSnapExist(ctx context.Context, conn *cephrados.Conn, snapSpec SnapSpec) (exist bool, err error) {
 	namespaceName, poolName, imageName, snapName, err := Snap(string(snapSpec))
 	if err != nil {
 		return
@@ -61,7 +49,7 @@ func RbdSnapExist(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (exi
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := rbd.OpenImage(ioctx, imageName, snapName)
+	image, err := cephrbd.OpenImage(ioctx, imageName, snapName)
 	if err != nil {
 		if isErrNotFound(err) {
 			err = nil
@@ -76,14 +64,7 @@ func RbdSnapExist(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (exi
 	return
 }
 
-func (rc *RadosConn) RbdSnapCreate(ctx context.Context, snapSpec SnapSpec) error {
-	err := rc.Do(ctx, func() error {
-		return RbdSnapCreate(ctx, rc.conn, snapSpec)
-	})
-	return err
-}
-
-func RbdSnapCreate(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) error {
+func RbdSnapCreate(ctx context.Context, conn *cephrados.Conn, snapSpec SnapSpec) error {
 	namespaceName, poolName, imageName, snapName, err := Snap(string(snapSpec))
 	if err != nil {
 		return err
@@ -98,7 +79,7 @@ func RbdSnapCreate(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) err
 	ioctx.SetNamespace(namespaceName)
 
 	// Open base image before operating on its snapshot metadata.
-	image, err := rbd.OpenImage(ioctx, imageName, rbd.NoSnapshot)
+	image, err := cephrbd.OpenImage(ioctx, imageName, cephrbd.NoSnapshot)
 	if err != nil {
 		return fmt.Errorf("failed to open image (%s): %w", imageName, err)
 	}
@@ -116,14 +97,7 @@ func RbdSnapCreate(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) err
 	return nil
 }
 
-func (rc *RadosConn) RbdSnapRemove(ctx context.Context, snapSpec SnapSpec) error {
-	err := rc.Do(ctx, func() error {
-		return RbdSnapRemove(ctx, rc.conn, snapSpec)
-	})
-	return err
-}
-
-func RbdSnapRemove(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) error {
+func RbdSnapRemove(ctx context.Context, conn *cephrados.Conn, snapSpec SnapSpec) error {
 	namespaceName, poolName, imageName, snapName, err := Snap(string(snapSpec))
 	if err != nil {
 		return err
@@ -145,7 +119,7 @@ func RbdSnapRemove(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) err
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := rbd.OpenImage(ioctx, imageName, snapName)
+	image, err := cephrbd.OpenImage(ioctx, imageName, snapName)
 	if err != nil {
 		return fmt.Errorf("failed to open image (%s): %w", imageName, err)
 	}
@@ -170,19 +144,7 @@ func RbdSnapRemove(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) err
 	return nil
 }
 
-func (rc *RadosConn) RbdSnapList(ctx context.Context, imageSpec ImageSpec) (snaps []SnapInfo, err error) {
-	err = rc.Do(ctx, func() error {
-		_snaps, err := RbdSnapList(ctx, rc.conn, imageSpec)
-		if err != nil {
-			return err
-		}
-		snaps = _snaps
-		return nil
-	})
-	return
-}
-
-func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (snapInfos []SnapInfo, err error) {
+func RbdSnapList(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) (snapInfos []SnapInfo, err error) {
 	namespaceName, poolName, imageName, err := Image(string(imageSpec))
 	if err != nil {
 		return
@@ -197,7 +159,7 @@ func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (sn
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := rbd.OpenImage(ioctx, imageName, rbd.NoSnapshot)
+	image, err := cephrbd.OpenImage(ioctx, imageName, cephrbd.NoSnapshot)
 	if err != nil {
 		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
 		return
@@ -241,7 +203,7 @@ func RbdSnapList(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (sn
 	return
 }
 
-func RbdSnapInfo(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (info *rbd.ImageInfo, err error) {
+func RbdSnapInfo(ctx context.Context, conn *cephrados.Conn, snapSpec SnapSpec) (info *cephrbd.ImageInfo, err error) {
 	namespaceName, poolName, imageName, snapName, err := Snap(string(snapSpec))
 	if err != nil {
 		return
@@ -256,7 +218,7 @@ func RbdSnapInfo(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (info
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := rbd.OpenImage(ioctx, imageName, snapName)
+	image, err := cephrbd.OpenImage(ioctx, imageName, snapName)
 	if err != nil {
 		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
 		return

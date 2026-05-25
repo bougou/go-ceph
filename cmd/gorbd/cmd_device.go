@@ -9,8 +9,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	ceph "github.com/bougou/go-ceph"
-	"github.com/bougou/go-ceph/krbd"
+	"github.com/bougou/go-ceph/pkg/krbd"
+	"github.com/bougou/go-ceph/pkg/rados"
+	"github.com/bougou/go-ceph/pkg/rbd"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +36,7 @@ func newDeviceListCmd() *cobra.Command {
 		Short:   "List mapped RBD devices",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withoutConn(context.Background(), func() error {
-				devices, err := ceph.RbdDeviceList(context.Background(), nil)
+				devices, err := rbd.RbdDeviceList(context.Background(), nil)
 				if err != nil {
 					return err
 				}
@@ -74,7 +75,7 @@ func newDeviceFindCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withoutConn(context.Background(), func() error {
-				device, err := ceph.RbdDeviceFind(context.Background(), nil, args[0])
+				device, err := rbd.RbdDeviceFind(context.Background(), nil, args[0])
 				if err != nil {
 					return err
 				}
@@ -141,7 +142,7 @@ func newDeviceMapCmd() *cobra.Command {
 				options.Exclusive = true
 			}
 
-			return withConn(context.Background(), func(conn *ceph.RadosConn) error {
+			return withConn(context.Background(), func(conn *rados.RadosConn) error {
 				return conn.RbdDeviceMap(context.Background(), args[0], options)
 			})
 		},
@@ -185,7 +186,7 @@ func newDeviceUnmapCmd() *cobra.Command {
 				return err
 			}
 
-			return withConn(context.Background(), func(conn *ceph.RadosConn) error {
+			return withConn(context.Background(), func(conn *rados.RadosConn) error {
 				input := strings.TrimSpace(args[0])
 				if devID, ok := parseDeviceIDFromPath(input); ok {
 					return conn.RbdDeviceUnmapByID(context.Background(), devID, unmapOpts)

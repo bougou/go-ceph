@@ -1,26 +1,14 @@
-package ceph
+package rbd
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ceph/go-ceph/rados"
-	"github.com/ceph/go-ceph/rbd"
+	cephrados "github.com/ceph/go-ceph/rados"
+	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
-func (rc *RadosConn) RbdChildren(ctx context.Context, imageSpec ImageSpec) (children []ImageSpec, err error) {
-	err = rc.Do(ctx, func() error {
-		_children, err := RbdChildren(ctx, rc.conn, imageSpec)
-		if err != nil {
-			return err
-		}
-		children = _children
-		return nil
-	})
-	return
-}
-
-func RbdChildren(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (children []ImageSpec, err error) {
+func RbdChildren(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) (children []ImageSpec, err error) {
 	namespaceName, poolName, imageName, err := Image(string(imageSpec))
 	if err != nil {
 		return
@@ -35,7 +23,7 @@ func RbdChildren(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (ch
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := rbd.OpenImage(ioctx, imageName, rbd.NoSnapshot)
+	image, err := cephrbd.OpenImage(ioctx, imageName, cephrbd.NoSnapshot)
 	if err != nil {
 		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
 		return
@@ -61,19 +49,7 @@ func RbdChildren(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (ch
 	return
 }
 
-func (rc *RadosConn) RbdSnapChildren(ctx context.Context, snapSpec SnapSpec) (children []ImageSpec, err error) {
-	err = rc.Do(ctx, func() error {
-		_children, err := RbdSnapChildren(ctx, rc.conn, snapSpec)
-		if err != nil {
-			return err
-		}
-		children = _children
-		return nil
-	})
-	return
-}
-
-func RbdSnapChildren(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (children []ImageSpec, err error) {
+func RbdSnapChildren(ctx context.Context, conn *cephrados.Conn, snapSpec SnapSpec) (children []ImageSpec, err error) {
 	namespaceName, poolName, imageName, snapName, err := Snap(string(snapSpec))
 	if err != nil {
 		return
@@ -88,7 +64,7 @@ func RbdSnapChildren(ctx context.Context, conn *rados.Conn, snapSpec SnapSpec) (
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := rbd.OpenImage(ioctx, imageName, snapName)
+	image, err := cephrbd.OpenImage(ioctx, imageName, snapName)
 	if err != nil {
 		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
 		return

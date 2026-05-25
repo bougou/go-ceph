@@ -1,21 +1,14 @@
-package ceph
+package rbd
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ceph/go-ceph/rados"
-	"github.com/ceph/go-ceph/rbd"
+	cephrados "github.com/ceph/go-ceph/rados"
+	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
-func (rc *RadosConn) RbdRemove(ctx context.Context, imageSpec ImageSpec) error {
-	err := rc.Do(ctx, func() error {
-		return RbdRemove(ctx, rc.conn, imageSpec)
-	})
-	return err
-}
-
-func RbdRemove(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) error {
+func RbdRemove(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) error {
 	namespaceName, poolName, imageName, err := Image(string(imageSpec))
 	if err != nil {
 		return err
@@ -29,7 +22,7 @@ func RbdRemove(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) error
 
 	ioctx.SetNamespace(namespaceName)
 
-	if err := rbd.RemoveImage(ioctx, imageName); err != nil {
+	if err := cephrbd.RemoveImage(ioctx, imageName); err != nil {
 		return fmt.Errorf("failed to remove image (%s): %w", imageName, err)
 	}
 

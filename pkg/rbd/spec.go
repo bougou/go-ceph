@@ -1,7 +1,6 @@
-package ceph
+package rbd
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -10,9 +9,6 @@ const (
 	// Default pool name
 	DefaultPoolName string = "rbd"
 )
-
-// ErrPlatformNotSupported is returned when RBD operations are called on unsupported platforms
-var ErrPlatformNotSupported = errors.New("RBD is not supported on this platform")
 
 type ImageSpec string
 

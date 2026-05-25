@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 
-	ceph "github.com/bougou/go-ceph"
+	"github.com/bougou/go-ceph/pkg/rados"
+	"github.com/bougou/go-ceph/pkg/rbd"
 	"github.com/spf13/cobra"
 )
 
@@ -14,8 +15,8 @@ func newRemoveCmd() *cobra.Command {
 		Short:   "Remove image",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withConn(context.Background(), func(conn *ceph.RadosConn) error {
-				return conn.RbdRemove(context.Background(), ceph.ImageSpec(args[0]))
+			return withConn(context.Background(), func(conn *rados.RadosConn) error {
+				return conn.RbdRemove(context.Background(), rbd.ImageSpec(args[0]))
 			})
 		},
 	}

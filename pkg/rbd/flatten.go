@@ -1,21 +1,14 @@
-package ceph
+package rbd
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ceph/go-ceph/rados"
-	"github.com/ceph/go-ceph/rbd"
+	cephrados "github.com/ceph/go-ceph/rados"
+	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
-func (rc *RadosConn) RbdFlatten(ctx context.Context, imageSpec ImageSpec) error {
-	err := rc.Do(ctx, func() error {
-		return RbdFlatten(ctx, rc.conn, imageSpec)
-	})
-	return err
-}
-
-func RbdFlatten(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) error {
+func RbdFlatten(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) error {
 	namespaceName, poolName, imageName, err := Image(string(imageSpec))
 	if err != nil {
 		return err
@@ -29,7 +22,7 @@ func RbdFlatten(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) erro
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := rbd.OpenImage(ioctx, imageName, "")
+	image, err := cephrbd.OpenImage(ioctx, imageName, "")
 	if err != nil {
 		return fmt.Errorf("failed to open image (%s): %w", imageName, err)
 	}

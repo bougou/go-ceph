@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 
-	ceph "github.com/bougou/go-ceph"
+	"github.com/bougou/go-ceph/pkg/rados"
+	"github.com/bougou/go-ceph/pkg/rbd"
 	"github.com/spf13/cobra"
 )
 
@@ -19,8 +20,8 @@ func newCreateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return withConn(context.Background(), func(conn *ceph.RadosConn) error {
-				return conn.RbdCreate(context.Background(), ceph.ImageSpec(args[0]), int64(sizeBytes))
+			return withConn(context.Background(), func(conn *rados.RadosConn) error {
+				return conn.RbdCreate(context.Background(), rbd.ImageSpec(args[0]), int64(sizeBytes))
 			})
 		},
 	}

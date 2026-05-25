@@ -1,21 +1,14 @@
-package ceph
+package rbd
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ceph/go-ceph/rados"
-	"github.com/ceph/go-ceph/rbd"
+	cephrados "github.com/ceph/go-ceph/rados"
+	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
-func (rc *RadosConn) RbdClone(ctx context.Context, srcSnapSpec SnapSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
-	err := rc.Do(ctx, func() error {
-		return RbdClone(ctx, rc.conn, srcSnapSpec, dstImageSpec, optFns...)
-	})
-	return err
-}
-
-func RbdClone(ctx context.Context, conn *rados.Conn, srcSnapSpec SnapSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
+func RbdClone(ctx context.Context, conn *cephrados.Conn, srcSnapSpec SnapSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
 	srcNamespaceName, srcPoolName, srcImageName, srcSnapName, err := Snap(string(srcSnapSpec))
 	if err != nil {
 		return err
@@ -42,7 +35,7 @@ func RbdClone(ctx context.Context, conn *rados.Conn, srcSnapSpec SnapSpec, dstIm
 
 	srcIOCtx.SetNamespace(srcNamespaceName)
 
-	srcSnap, err := rbd.OpenImage(srcIOCtx, srcImageName, srcSnapName)
+	srcSnap, err := cephrbd.OpenImage(srcIOCtx, srcImageName, srcSnapName)
 	if err != nil {
 		return fmt.Errorf("failed to open source snapshot (%s) for image (%s): %w", srcSnapName, srcImageName, err)
 	}
@@ -62,7 +55,7 @@ func RbdClone(ctx context.Context, conn *rados.Conn, srcSnapSpec SnapSpec, dstIm
 	}
 	defer imageOpts.Destroy()
 
-	if err := rbd.CloneImage(srcIOCtx, srcImageName, srcSnapName, dstIOCtx, dstImageName, imageOpts); err != nil {
+	if err := cephrbd.CloneImage(srcIOCtx, srcImageName, srcSnapName, dstIOCtx, dstImageName, imageOpts); err != nil {
 		return fmt.Errorf("failed to clone image (%s) from snapshot (%s): %w", dstImageName, srcSnapSpec, err)
 	}
 

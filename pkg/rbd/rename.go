@@ -1,21 +1,14 @@
-package ceph
+package rbd
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ceph/go-ceph/rados"
-	"github.com/ceph/go-ceph/rbd"
+	cephrados "github.com/ceph/go-ceph/rados"
+	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
-func (rc *RadosConn) RbdRename(ctx context.Context, srcImageSpec ImageSpec, dstImageSpec ImageSpec) error {
-	err := rc.Do(ctx, func() error {
-		return RbdRename(ctx, rc.conn, srcImageSpec, dstImageSpec)
-	})
-	return err
-}
-
-func RbdRename(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec) error {
+func RbdRename(ctx context.Context, conn *cephrados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec) error {
 	srcNamespaceName, srcPoolName, srcImageName, err := Image(string(srcImageSpec))
 	if err != nil {
 		return err
@@ -45,7 +38,7 @@ func RbdRename(ctx context.Context, conn *rados.Conn, srcImageSpec ImageSpec, ds
 
 	ioctx.SetNamespace(srcNamespaceName)
 
-	srcImage, err := rbd.OpenImage(ioctx, srcImageName, "")
+	srcImage, err := cephrbd.OpenImage(ioctx, srcImageName, "")
 	if err != nil {
 		return fmt.Errorf("failed to open source image (%s): %w", srcImageName, err)
 	}

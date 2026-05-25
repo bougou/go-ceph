@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	ceph "github.com/bougou/go-ceph"
+	"github.com/bougou/go-ceph/pkg/rados"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +19,7 @@ Positional arguments:
                         ([<pool-name>/[<namespace>/]]<image-name>[@<snap-name>])`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withConn(context.Background(), func(conn *ceph.RadosConn) error {
+			return withConn(context.Background(), func(conn *rados.RadosConn) error {
 				watchers, err := conn.RbdStatus(context.Background(), args[0])
 				if err != nil {
 					return err

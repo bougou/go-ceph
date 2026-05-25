@@ -1,27 +1,14 @@
-package ceph
+package rbd
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ceph/go-ceph/rados"
-	"github.com/ceph/go-ceph/rbd"
+	cephrados "github.com/ceph/go-ceph/rados"
+	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
-func (rc *RadosConn) RbdStatus(ctx context.Context, imageOrSnapSpec string) (watchers []rbd.ImageWatcher, err error) {
-	watchers = nil
-	err = rc.Do(ctx, func() error {
-		_watchers, err := RbdStatus(ctx, rc.conn, imageOrSnapSpec)
-		if err != nil {
-			return err
-		}
-		watchers = _watchers
-		return nil
-	})
-	return watchers, err
-}
-
-func RbdStatus(ctx context.Context, conn *rados.Conn, imageOrSnapSpec string) (watchers []rbd.ImageWatcher, err error) {
+func RbdStatus(ctx context.Context, conn *cephrados.Conn, imageOrSnapSpec string) (watchers []cephrbd.ImageWatcher, err error) {
 	namespaceName, poolName, imageName, snapshotName, err := ImageOrSnap(imageOrSnapSpec)
 	if err != nil {
 		return
@@ -38,12 +25,12 @@ func RbdStatus(ctx context.Context, conn *rados.Conn, imageOrSnapSpec string) (w
 
 	snapName := snapshotName
 	if snapName == "" {
-		snapName = rbd.NoSnapshot
+		snapName = cephrbd.NoSnapshot
 	}
 
 	// Note: we use OpenImageReadOnly instead of OpenImage to avoid the need to open the image for writing.
 	// OpenImage would register itself as a watcher.
-	image, err := rbd.OpenImageReadOnly(ioctx, imageName, snapName)
+	image, err := cephrbd.OpenImageReadOnly(ioctx, imageName, snapName)
 	if err != nil {
 		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
 		return

@@ -1,4 +1,4 @@
-package ceph
+package rbd
 
 import (
 	"fmt"

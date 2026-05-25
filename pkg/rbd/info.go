@@ -1,4 +1,4 @@
-package ceph
+package rbd
 
 import (
 	"context"
@@ -7,27 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ceph/go-ceph/rados"
-	"github.com/ceph/go-ceph/rbd"
+	cephrados "github.com/ceph/go-ceph/rados"
+	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
 // RbdInfo retrieves detailed information about an RBD image.
 // If the image does not exist, it returns nil, nil.
-func (rc *RadosConn) RbdInfo(ctx context.Context, imageSpec ImageSpec) (info *ImageInfo, err error) {
-	err = rc.Do(ctx, func() error {
-		_info, err := RbdInfo(ctx, rc.conn, imageSpec)
-		if err != nil {
-			return err
-		}
-		info = _info
-		return nil
-	})
-	return
-}
-
-// RbdInfo retrieves detailed information about an RBD image.
-// If the image does not exist, it returns nil, nil.
-func RbdInfo(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (info *ImageInfo, err error) {
+func RbdInfo(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) (info *ImageInfo, err error) {
 	namespaceName, poolName, imageName, err := Image(string(imageSpec))
 	if err != nil {
 		return
@@ -43,7 +29,7 @@ func RbdInfo(ctx context.Context, conn *rados.Conn, imageSpec ImageSpec) (info *
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := rbd.OpenImage(ioctx, imageName, rbd.NoSnapshot)
+	image, err := cephrbd.OpenImage(ioctx, imageName, cephrbd.NoSnapshot)
 	if err != nil {
 		if isErrNotFound(err) {
 			err = nil
@@ -203,7 +189,7 @@ func (r *ImageInfo) String() string {
 }
 
 // ConvertRbdImageToImageInfo retrieves detailed information from an already opened RBD image.
-func ConvertRbdImageToImageInfo(image *rbd.Image) (info *ImageInfo, err error) {
+func ConvertRbdImageToImageInfo(image *cephrbd.Image) (info *ImageInfo, err error) {
 	imageName := image.GetName()
 	info = &ImageInfo{
 		Name: imageName,
@@ -250,7 +236,7 @@ func ConvertRbdImageToImageInfo(image *rbd.Image) (info *ImageInfo, err error) {
 	info.Features = features
 
 	// Convert features bitmask to feature names
-	featureSet := rbd.FeatureSet(features)
+	featureSet := cephrbd.FeatureSet(features)
 	info.FeatureNames = featureSet.Names()
 
 	// Get snapshot count

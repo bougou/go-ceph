@@ -5,6 +5,7 @@ Opinionated extensions around the official `github.com/ceph/go-ceph`, currently 
 ## What this repository is for
 
 This project builds on top of the official Go Ceph bindings and adds:
+
 - Higher-level RBD helper APIs for common operations.
 - A workflow-oriented layer for scripts and automation.
 
@@ -32,28 +33,27 @@ import (
 	"context"
 	"log"
 
-	ceph "github.com/bougou/go-ceph"
+	"github.com/bougou/go-ceph/pkg/rados"
+	"github.com/bougou/go-ceph/pkg/rbd"
 )
 
 func main() {
 	ctx := context.Background()
 
-	conn, err := ceph.NewRadosConn("", false)
+	conn, err := rados.NewRadosConn("", false)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer conn.Close()
 
-	if err := conn.RbdCreate(ctx, ceph.ImageSpec("pool/image"), 1<<30); err != nil {
+	if err := conn.RbdCreate(ctx, rbd.ImageSpec("pool/image"), 1<<30); err != nil {
 		log.Fatal(err)
 	}
 
-	info, err := conn.RbdInfo(ctx, ceph.ImageSpec("pool/image"))
+	info, err := conn.RbdInfo(ctx, rbd.ImageSpec("pool/image"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Println(info.String())
 }
 ```
-
-For CLI-based workflows, see `cmd/gorbd`.
