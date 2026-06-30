@@ -72,6 +72,9 @@ func newRadosConn(cephConfFile string) (conn *cephrados.Conn, err error) {
 }
 
 func (rc *RadosConn) Connect() error {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
 	if rc.conn == nil {
 		conn, err := newRadosConn(rc.cephConfFile)
 		if err != nil {
@@ -79,10 +82,7 @@ func (rc *RadosConn) Connect() error {
 		}
 		rc.conn = conn
 	}
-	if err := rc.conn.Connect(); err != nil {
-		return err
-	}
-	return nil
+	return rc.conn.Connect()
 }
 
 func (rc *RadosConn) Reconnect() error {
@@ -101,15 +101,14 @@ func (rc *RadosConn) Reconnect() error {
 func (rc *RadosConn) ensureConnected() error {
 	rc.mu.RLock()
 	conn := rc.conn
-	rc.mu.RUnlock()
-
 	if conn == nil {
+		rc.mu.RUnlock()
 		return rc.Reconnect()
 	}
 
-	// Try a simple operation to check if connection is alive
-	// GetClusterStats is a lightweight operation to verify connection
+	// GetClusterStats is a lightweight operation to verify connection.
 	_, err := conn.GetClusterStats()
+	rc.mu.RUnlock()
 	if err != nil {
 		return rc.Reconnect()
 	}
@@ -154,7 +153,10 @@ func (rc *RadosConn) Close() error {
 }
 
 // Do runs operation with automatic reconnection when a connection error occurs.
-func (rc *RadosConn) Do(ctx context.Context, operation func() error) error {
+//
+// The connection pointer is held for the entire operation so concurrent Reconnect
+// calls cannot nil it out mid-flight.
+func (rc *RadosConn) Do(ctx context.Context, operation func(conn *cephrados.Conn) error) error {
 	var lastErr error
 
 	maxRetries := rc.retries
@@ -176,8 +178,16 @@ func (rc *RadosConn) Do(ctx context.Context, operation func() error) error {
 			continue
 		}
 
-		// Execute the operation
-		err := operation()
+		// Execute the operation while holding a read lock so rc.conn stays stable.
+		err := func() error {
+			rc.mu.RLock()
+			defer rc.mu.RUnlock()
+
+			if rc.conn == nil {
+				return fmt.Errorf("rados connection is not established")
+			}
+			return operation(rc.conn)
+		}()
 		if err == nil {
 			return nil
 		}
