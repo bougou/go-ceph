@@ -15,8 +15,15 @@ const (
 // Valid reports whether the spec has no "@" and non-empty pool and image names.
 type ImageSpec string
 
-func NewImageSpec(poolName string, imageName string) ImageSpec {
+func NewImageSpec(poolName, imageName string) ImageSpec {
 	return ImageSpec(fmt.Sprintf("%s/%s", poolName, imageName))
+}
+
+func NewImageSpecWithNamespace(poolName, namespaceName, imageName string) ImageSpec {
+	if namespaceName == "" {
+		return NewImageSpec(poolName, imageName)
+	}
+	return ImageSpec(fmt.Sprintf("%s/%s/%s", poolName, namespaceName, imageName))
 }
 
 func (i ImageSpec) clean() string {

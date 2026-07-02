@@ -45,6 +45,18 @@ func (rc *RadosConn) RbdCopy(ctx context.Context, srcImageSpec rbd.ImageSpec, ds
 	})
 }
 
+func (rc *RadosConn) RbdCopySnap(ctx context.Context, srcSnapSpec rbd.SnapSpec, dstImageSpec rbd.ImageSpec, optFns ...rbd.RbdImageOptionFn) error {
+	return rc.Do(ctx, func(conn *cephrados.Conn) error {
+		return rbd.RbdCopySnap(ctx, conn, srcSnapSpec, dstImageSpec, optFns...)
+	})
+}
+
+func (rc *RadosConn) RbdCopyUnsafe(ctx context.Context, srcImageSpec rbd.ImageSpec, dstImageSpec rbd.ImageSpec) error {
+	return rc.Do(ctx, func(conn *cephrados.Conn) error {
+		return rbd.RbdCopyUnsafe(ctx, conn, srcImageSpec, dstImageSpec)
+	})
+}
+
 func (rc *RadosConn) RbdCreate(ctx context.Context, imageSpec rbd.ImageSpec, sizeBytes int64, optFns ...rbd.RbdImageOptionFn) error {
 	return rc.Do(ctx, func(conn *cephrados.Conn) error {
 		return rbd.RbdCreate(ctx, conn, imageSpec, sizeBytes, optFns...)
