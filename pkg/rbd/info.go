@@ -179,11 +179,15 @@ func (r *ImageInfo) String() string {
 	)
 
 	if r.Parent != "" {
-		out += fmt.Sprintf("\nparent: %s", r.Parent)
+		out += fmt.Sprintf(`
+	parent: %s`, r.Parent)
 	}
+
 	if r.Overlap != 0 {
-		out += fmt.Sprintf("\noverlap: %s", sizeHuman(r.Overlap, 0))
+		out += fmt.Sprintf(`
+	overlap: %s`, sizeHuman(r.Overlap, 0))
 	}
+
 	return out
 
 }
