@@ -49,18 +49,21 @@ func RbdSnapExist(ctx context.Context, conn *cephrados.Conn, snapSpec SnapSpec) 
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := cephrbd.OpenImage(ioctx, imageName, snapName)
+	image, err := cephrbd.OpenImage(ioctx, imageName, cephrbd.NoSnapshot)
 	if err != nil {
 		if isErrNotFound(err) {
 			err = nil
 			return
 		}
-		err = fmt.Errorf("failed to open image %s: %w", imageName, err)
+		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
 		return
 	}
 	defer image.Close()
 
-	exist = true
+	exist, err = imageHasSnapshot(image, snapName)
+	if err != nil {
+		err = fmt.Errorf("failed to list snapshots for image (%s): %w", imageName, err)
+	}
 	return
 }
 
@@ -119,11 +122,22 @@ func RbdSnapRemove(ctx context.Context, conn *cephrados.Conn, snapSpec SnapSpec)
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := cephrbd.OpenImage(ioctx, imageName, snapName)
+	image, err := cephrbd.OpenImage(ioctx, imageName, cephrbd.NoSnapshot)
 	if err != nil {
+		if isErrNotFound(err) {
+			return fmt.Errorf("image (%s) not found", imageName)
+		}
 		return fmt.Errorf("failed to open image (%s): %w", imageName, err)
 	}
 	defer image.Close()
+
+	exists, err := imageHasSnapshot(image, snapName)
+	if err != nil {
+		return fmt.Errorf("failed to list snapshots for image (%s): %w", imageName, err)
+	}
+	if !exists {
+		return fmt.Errorf("snapshot (%s) not found for image (%s)", snapName, imageName)
+	}
 
 	snap := image.GetSnapshot(snapName)
 
@@ -218,18 +232,52 @@ func RbdSnapInfo(ctx context.Context, conn *cephrados.Conn, snapSpec SnapSpec) (
 
 	ioctx.SetNamespace(namespaceName)
 
-	image, err := cephrbd.OpenImage(ioctx, imageName, snapName)
+	image, err := cephrbd.OpenImage(ioctx, imageName, cephrbd.NoSnapshot)
 	if err != nil {
+		if isErrNotFound(err) {
+			err = fmt.Errorf("image (%s) not found", imageName)
+			return
+		}
 		err = fmt.Errorf("failed to open image (%s): %w", imageName, err)
 		return
 	}
 	defer image.Close()
 
-	info, err = image.Stat()
+	exists, existsErr := imageHasSnapshot(image, snapName)
+	if existsErr != nil {
+		err = fmt.Errorf("failed to list snapshots for image (%s): %w", imageName, existsErr)
+		return
+	}
+	if !exists {
+		err = fmt.Errorf("snapshot (%s) not found for image (%s)", snapName, imageName)
+		return
+	}
+
+	snapImage, err := cephrbd.OpenImage(ioctx, imageName, snapName)
+	if err != nil {
+		err = fmt.Errorf("failed to open snapshot (%s) for image (%s): %w", snapName, imageName, err)
+		return
+	}
+	defer snapImage.Close()
+
+	info, err = snapImage.Stat()
 	if err != nil {
 		err = fmt.Errorf("failed to stat snapshot (%s) for image (%s): %w", snapName, imageName, err)
 		return
 	}
 
 	return
+}
+
+func imageHasSnapshot(image *cephrbd.Image, snapName string) (bool, error) {
+	snaps, err := image.GetSnapshotNames()
+	if err != nil {
+		return false, err
+	}
+	for _, snap := range snaps {
+		if snap.Name == snapName {
+			return true, nil
+		}
+	}
+	return false, nil
 }
