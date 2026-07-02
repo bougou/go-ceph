@@ -6,6 +6,7 @@ import (
 
 	"github.com/bougou/go-ceph/pkg/rados"
 	"github.com/bougou/go-ceph/pkg/rbd"
+	cephrbd "github.com/ceph/go-ceph/rbd"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +30,7 @@ Positional arguments:
 					return err
 				}
 
-				var parents []rbd.ImageSpec
+				var parents []*cephrbd.ParentInfo
 
 				if snapshotName != "" {
 					parents, err = conn.RbdSnapParents(context.Background(), rbd.SnapSpec(spec))
@@ -40,7 +41,7 @@ Positional arguments:
 					return err
 				}
 				for _, parent := range parents {
-					fmt.Println(string(parent))
+					fmt.Printf("%s/%s@%s\n", parent.Image.PoolName, parent.Image.ImageName, parent.Snap.SnapName)
 				}
 				return nil
 			})

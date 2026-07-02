@@ -8,9 +8,9 @@ import (
 	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
-// RbdParents returns all parent images of the given image, walking up the clone
+// RbdParents returns all parent snapshots of the given image, walking up the clone
 // chain from the nearest parent to the root. An image with no parent returns nil.
-func RbdParents(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) (parents []ImageSpec, err error) {
+func RbdParents(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) (parents []*cephrbd.ParentInfo, err error) {
 	namespaceName, poolName, imageName, err := Image(string(imageSpec))
 	if err != nil {
 		return
@@ -19,9 +19,9 @@ func RbdParents(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) 
 	return rbdListParents(ctx, conn, namespaceName, poolName, imageName, "")
 }
 
-// RbdSnapParents returns all parent images of the given snapshot, walking up the
+// RbdSnapParents returns all parent snapshots of the given snapshot, walking up the
 // clone chain from the nearest parent to the root. A snapshot with no parent returns nil.
-func RbdSnapParents(ctx context.Context, conn *cephrados.Conn, snapSpec SnapSpec) (parents []ImageSpec, err error) {
+func RbdSnapParents(ctx context.Context, conn *cephrados.Conn, snapSpec SnapSpec) (parents []*cephrbd.ParentInfo, err error) {
 	namespaceName, poolName, imageName, snapName, err := Snap(string(snapSpec))
 	if err != nil {
 		return
@@ -30,7 +30,7 @@ func RbdSnapParents(ctx context.Context, conn *cephrados.Conn, snapSpec SnapSpec
 	return rbdListParents(ctx, conn, namespaceName, poolName, imageName, snapName)
 }
 
-func rbdListParents(ctx context.Context, conn *cephrados.Conn, namespaceName, poolName, imageName, snapName string) (parents []ImageSpec, err error) {
+func rbdListParents(ctx context.Context, conn *cephrados.Conn, namespaceName, poolName, imageName, snapName string) (parents []*cephrbd.ParentInfo, err error) {
 	currentNamespace := namespaceName
 	currentPool := poolName
 	currentImage := imageName
@@ -39,7 +39,7 @@ func rbdListParents(ctx context.Context, conn *cephrados.Conn, namespaceName, po
 	seen := make(map[string]struct{})
 
 	for {
-		parentSpec, parentErr := rbdGetParent(ctx, conn, currentNamespace, currentPool, currentImage, currentSnap)
+		parent, parentErr := rbdGetParent(ctx, conn, currentNamespace, currentPool, currentImage, currentSnap)
 		if parentErr != nil {
 			if isErrNotFound(parentErr) {
 				return parents, nil
@@ -48,22 +48,22 @@ func rbdListParents(ctx context.Context, conn *cephrados.Conn, namespaceName, po
 			return
 		}
 
-		parentKey := string(parentSpec)
+		parentKey := parentInfoKey(parent)
 		if _, ok := seen[parentKey]; ok {
-			err = fmt.Errorf("parent chain cycle detected at %s", parentSpec)
+			err = fmt.Errorf("parent chain cycle detected at %s", parentKey)
 			return
 		}
 		seen[parentKey] = struct{}{}
-		parents = append(parents, parentSpec)
+		parents = append(parents, parent)
 
-		currentNamespace = parentSpec.Namespace()
-		currentPool = parentSpec.Pool()
-		currentImage = parentSpec.Image()
+		currentNamespace = parent.Image.PoolNamespace
+		currentPool = parent.Image.PoolName
+		currentImage = parent.Image.ImageName
 		currentSnap = ""
 	}
 }
 
-func rbdGetParent(ctx context.Context, conn *cephrados.Conn, namespaceName, poolName, imageName, snapName string) (parentSpec ImageSpec, err error) {
+func rbdGetParent(ctx context.Context, conn *cephrados.Conn, namespaceName, poolName, imageName, snapName string) (parent *cephrbd.ParentInfo, err error) {
 	ioctx, err := conn.OpenIOContext(poolName)
 	if err != nil {
 		err = fmt.Errorf("failed to open pool (%s): %w", poolName, err)
@@ -85,19 +85,24 @@ func rbdGetParent(ctx context.Context, conn *cephrados.Conn, namespaceName, pool
 	}
 	defer image.Close()
 
-	parentInfo, err := image.GetParent()
+	parent, err = image.GetParent()
 	if err != nil {
 		if isErrNotFound(err) {
-			return "", err
+			return nil, err
 		}
 		err = fmt.Errorf("failed to get parent for image (%s): %w", imageName, err)
 		return
 	}
-
-	parentSpec = NewImageSpecWithNamespace(
-		parentInfo.Image.PoolName,
-		parentInfo.Image.PoolNamespace,
-		parentInfo.Image.ImageName,
-	)
 	return
+}
+
+func parentInfoKey(parent *cephrbd.ParentInfo) string {
+	return fmt.Sprintf("%s@%s",
+		NewImageSpecWithNamespace(
+			parent.Image.PoolName,
+			parent.Image.PoolNamespace,
+			parent.Image.ImageName,
+		),
+		parent.Snap.SnapName,
+	)
 }
