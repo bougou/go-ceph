@@ -30,6 +30,7 @@ func newRootCmd() *cobra.Command {
 		newCopyCmd(),
 		newCloneCmd(),
 		newChildrenCmd(),
+		newParentCmd(),
 		newSnapCmd(),
 		newDeviceCmd(),
 	)

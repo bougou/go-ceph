@@ -9,6 +9,30 @@ import (
 	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
+func (rc *RadosConn) RbdParents(ctx context.Context, imageSpec rbd.ImageSpec) (parents []rbd.ImageSpec, err error) {
+	err = rc.Do(ctx, func(conn *cephrados.Conn) error {
+		_parents, err := rbd.RbdParents(ctx, conn, imageSpec)
+		if err != nil {
+			return err
+		}
+		parents = _parents
+		return nil
+	})
+	return
+}
+
+func (rc *RadosConn) RbdSnapParents(ctx context.Context, snapSpec rbd.SnapSpec) (parents []rbd.ImageSpec, err error) {
+	err = rc.Do(ctx, func(conn *cephrados.Conn) error {
+		_parents, err := rbd.RbdSnapParents(ctx, conn, snapSpec)
+		if err != nil {
+			return err
+		}
+		parents = _parents
+		return nil
+	})
+	return
+}
+
 func (rc *RadosConn) RbdChildren(ctx context.Context, imageSpec rbd.ImageSpec) (children []rbd.ImageSpec, err error) {
 	err = rc.Do(ctx, func(conn *cephrados.Conn) error {
 		_children, err := rbd.RbdChildren(ctx, conn, imageSpec)
