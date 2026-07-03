@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"errors"
@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-func parseSizeToBytes(input string) (sizeBytes uint64, err error) {
+// ParseSizeToBytes parses a human-readable size string (e.g. 1G, 512M).
+func ParseSizeToBytes(input string) (sizeBytes uint64, err error) {
 	s := strings.TrimSpace(strings.ToUpper(input))
 	if s == "" {
 		err = errors.New("size is empty")

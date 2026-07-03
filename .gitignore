@@ -1,4 +1,4 @@
 examples/
-cmd/gorbd/gorbd
-cmd/gorbd/gorbd.exe
+cmd/goceph/goceph
+cmd/goceph/goceph.exe
 .claude

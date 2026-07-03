@@ -1,14 +1,15 @@
-package main
+package rbd
 
 import (
 	"context"
 
+	"github.com/bougou/go-ceph/cmd/goceph/internal/app"
 	"github.com/bougou/go-ceph/pkg/rados"
-	"github.com/bougou/go-ceph/pkg/rbd"
+	rbdapi "github.com/bougou/go-ceph/pkg/rbd"
 	"github.com/spf13/cobra"
 )
 
-func newCreateCmd() *cobra.Command {
+func newCreateCmd(opts *app.Options) *cobra.Command {
 	var sizeStr string
 
 	cmd := &cobra.Command{
@@ -16,12 +17,12 @@ func newCreateCmd() *cobra.Command {
 		Short: "Create image",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sizeBytes, err := parseSizeToBytes(sizeStr)
+			sizeBytes, err := app.ParseSizeToBytes(sizeStr)
 			if err != nil {
 				return err
 			}
-			return withConn(context.Background(), func(conn *rados.RadosConn) error {
-				return conn.RbdCreate(context.Background(), rbd.ImageSpec(args[0]), int64(sizeBytes))
+			return opts.WithConn(context.Background(), func(conn *rados.RadosConn) error {
+				return conn.RbdCreate(context.Background(), rbdapi.ImageSpec(args[0]), int64(sizeBytes))
 			})
 		},
 	}

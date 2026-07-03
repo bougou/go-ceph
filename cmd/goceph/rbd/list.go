@@ -1,16 +1,16 @@
-package main
+package rbd
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/bougou/go-ceph/cmd/goceph/internal/app"
 	"github.com/bougou/go-ceph/pkg/rados"
-	"github.com/bougou/go-ceph/pkg/rbd"
+	rbdapi "github.com/bougou/go-ceph/pkg/rbd"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +20,7 @@ const (
 	listFormatXML   = "xml"
 )
 
-func newListCmd() *cobra.Command {
+func newListCmd(opts *app.Options) *cobra.Command {
 	var (
 		long       bool
 		poolFlag   string
@@ -53,7 +53,7 @@ Positional arguments:
 				return err
 			}
 
-			return withConn(context.Background(), func(conn *rados.RadosConn) error {
+			return opts.WithConn(context.Background(), func(conn *rados.RadosConn) error {
 				out := cmd.OutOrStdout()
 				if long {
 					entries, err := conn.RbdListLong(context.Background(), poolSpec)
@@ -83,10 +83,10 @@ Positional arguments:
 // resolvePoolSpec merges the positional pool-spec with the --pool and --namespace flags.
 // Positional wins if it carries a pool name; --namespace can still extend a positional
 // that omits its namespace.
-func resolvePoolSpec(args []string, poolFlag, nsFlag string) (rbd.PoolSpec, error) {
+func resolvePoolSpec(args []string, poolFlag, nsFlag string) (rbdapi.PoolSpec, error) {
 	var posPool, posNs string
 	if len(args) == 1 {
-		p, n, err := rbd.Pool(args[0])
+		p, n, err := rbdapi.Pool(args[0])
 		if err != nil {
 			return "", err
 		}
@@ -106,7 +106,7 @@ func resolvePoolSpec(args []string, poolFlag, nsFlag string) (rbd.PoolSpec, erro
 		return "", fmt.Errorf("pool name is required (positional <pool-spec> or --pool)")
 	}
 
-	spec := rbd.NewPoolSpec(pool, namespace)
+	spec := rbdapi.NewPoolSpec(pool, namespace)
 	if !spec.Valid() {
 		return "", fmt.Errorf("invalid pool spec: %s", spec)
 	}
@@ -116,7 +116,7 @@ func resolvePoolSpec(args []string, poolFlag, nsFlag string) (rbd.PoolSpec, erro
 func renderShort(w io.Writer, images []string, format string, pretty bool) error {
 	switch format {
 	case listFormatJSON:
-		return writeJSON(w, images, pretty)
+		return app.WriteJSON(w, images, pretty)
 	case listFormatXML:
 		return writeImagesXML(w, images, pretty)
 	default:
@@ -127,10 +127,10 @@ func renderShort(w io.Writer, images []string, format string, pretty bool) error
 	}
 }
 
-func renderLong(w io.Writer, entries []rbd.ImageListEntry, format string, pretty bool) error {
+func renderLong(w io.Writer, entries []rbdapi.ImageListEntry, format string, pretty bool) error {
 	switch format {
 	case listFormatJSON:
-		return writeJSON(w, entries, pretty)
+		return app.WriteJSON(w, entries, pretty)
 	case listFormatXML:
 		return writeEntriesXML(w, entries, pretty)
 	default:
@@ -155,14 +155,6 @@ func renderLong(w io.Writer, entries []rbd.ImageListEntry, format string, pretty
 	}
 }
 
-func writeJSON(w io.Writer, v any, pretty bool) error {
-	enc := json.NewEncoder(w)
-	if pretty {
-		enc.SetIndent("", "  ")
-	}
-	return enc.Encode(v)
-}
-
 // xmlImage and xmlEntries are XML wrappers so encoding/xml emits a stable root element.
 type xmlImage struct {
 	XMLName xml.Name `xml:"image"`
@@ -175,8 +167,8 @@ type xmlImageList struct {
 }
 
 type xmlEntryList struct {
-	XMLName xml.Name             `xml:"images"`
-	Entries []rbd.ImageListEntry `xml:"image"`
+	XMLName xml.Name                `xml:"images"`
+	Entries []rbdapi.ImageListEntry `xml:"image"`
 }
 
 func writeImagesXML(w io.Writer, images []string, pretty bool) error {
@@ -195,7 +187,7 @@ func writeImagesXML(w io.Writer, images []string, pretty bool) error {
 	return err
 }
 
-func writeEntriesXML(w io.Writer, entries []rbd.ImageListEntry, pretty bool) error {
+func writeEntriesXML(w io.Writer, entries []rbdapi.ImageListEntry, pretty bool) error {
 	list := xmlEntryList{Entries: entries}
 	enc := xml.NewEncoder(w)
 	if pretty {

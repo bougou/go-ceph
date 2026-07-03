@@ -1,22 +1,23 @@
-package main
+package rbd
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/bougou/go-ceph/cmd/goceph/internal/app"
 	"github.com/bougou/go-ceph/pkg/rados"
-	"github.com/bougou/go-ceph/pkg/rbd"
+	rbdapi "github.com/bougou/go-ceph/pkg/rbd"
 	"github.com/spf13/cobra"
 )
 
-func newInfoCmd() *cobra.Command {
+func newInfoCmd(opts *app.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "info <image-spec>",
 		Short: "Show image info",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withConn(context.Background(), func(conn *rados.RadosConn) error {
-				info, err := conn.RbdInfo(context.Background(), rbd.ImageSpec(args[0]))
+			return opts.WithConn(context.Background(), func(conn *rados.RadosConn) error {
+				info, err := conn.RbdInfo(context.Background(), rbdapi.ImageSpec(args[0]))
 				if err != nil {
 					return err
 				}

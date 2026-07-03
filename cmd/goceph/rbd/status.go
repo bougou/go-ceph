@@ -1,14 +1,15 @@
-package main
+package rbd
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/bougou/go-ceph/cmd/goceph/internal/app"
 	"github.com/bougou/go-ceph/pkg/rados"
 	"github.com/spf13/cobra"
 )
 
-func newStatusCmd() *cobra.Command {
+func newStatusCmd(opts *app.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status <image-or-snap-spec>",
 		Short: "Show watchers of an image or snapshot",
@@ -19,7 +20,7 @@ Positional arguments:
                         ([<pool-name>/[<namespace>/]]<image-name>[@<snap-name>])`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withConn(context.Background(), func(conn *rados.RadosConn) error {
+			return opts.WithConn(context.Background(), func(conn *rados.RadosConn) error {
 				watchers, err := conn.RbdStatus(context.Background(), args[0])
 				if err != nil {
 					return err

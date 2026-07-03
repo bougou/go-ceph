@@ -1,15 +1,16 @@
-package main
+package rbd
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/bougou/go-ceph/cmd/goceph/internal/app"
 	"github.com/bougou/go-ceph/pkg/rados"
-	"github.com/bougou/go-ceph/pkg/rbd"
+	rbdapi "github.com/bougou/go-ceph/pkg/rbd"
 	"github.com/spf13/cobra"
 )
 
-func newChildrenCmd() *cobra.Command {
+func newChildrenCmd(opts *app.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "children <image-or-snap-spec>",
 		Short: "Display children of an image or snapshot",
@@ -20,21 +21,21 @@ Positional arguments:
                         ([<pool-name>/[<namespace>/]]<image-name>[@<snap-name>])`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withConn(context.Background(), func(conn *rados.RadosConn) error {
+			return opts.WithConn(context.Background(), func(conn *rados.RadosConn) error {
 				spec := args[0]
-				_, _, _, snapshotName, err := rbd.ImageOrSnap(spec)
+				_, _, _, snapshotName, err := rbdapi.ImageOrSnap(spec)
 				if err != nil {
 					return err
 				}
 
 				var (
-					children []rbd.ImageSpec
+					children []rbdapi.ImageSpec
 				)
 
 				if snapshotName != "" {
-					children, err = conn.RbdSnapChildren(context.Background(), rbd.SnapSpec(spec))
+					children, err = conn.RbdSnapChildren(context.Background(), rbdapi.SnapSpec(spec))
 				} else {
-					children, err = conn.RbdChildren(context.Background(), rbd.ImageSpec(spec))
+					children, err = conn.RbdChildren(context.Background(), rbdapi.ImageSpec(spec))
 				}
 				if err != nil {
 					return err

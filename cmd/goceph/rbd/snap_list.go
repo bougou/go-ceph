@@ -1,4 +1,4 @@
-package main
+package rbd
 
 import (
 	"context"
@@ -6,20 +6,21 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/bougou/go-ceph/cmd/goceph/internal/app"
 	"github.com/bougou/go-ceph/pkg/rados"
-	"github.com/bougou/go-ceph/pkg/rbd"
+	rbdapi "github.com/bougou/go-ceph/pkg/rbd"
 	"github.com/spf13/cobra"
 )
 
-func newSnapListCmd() *cobra.Command {
+func newSnapListCmd(opts *app.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:     "ls <image-spec>",
 		Aliases: []string{"list"},
 		Short:   "List snapshots",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withConn(context.Background(), func(conn *rados.RadosConn) error {
-				snaps, err := conn.RbdSnapList(context.Background(), rbd.ImageSpec(args[0]))
+			return opts.WithConn(context.Background(), func(conn *rados.RadosConn) error {
+				snaps, err := conn.RbdSnapList(context.Background(), rbdapi.ImageSpec(args[0]))
 				if err != nil {
 					return err
 				}

@@ -57,3 +57,41 @@ func main() {
 	log.Println(info.String())
 }
 ```
+
+## CLI (`goceph`)
+
+The `goceph` binary mirrors native Ceph CLIs under a single entry point:
+
+```bash
+# RBD image operations (native `rbd`)
+goceph rbd create --size 1G pool/image
+goceph rbd info pool/image
+goceph rbd copy pool/src pool/dst
+
+# Ceph mgr / cluster operations (native `ceph`, mgr modules)
+goceph ceph rbd task add flatten pool/image
+goceph ceph rbd task list
+
+# RADOS operations (native `rados`, expanding)
+goceph rados
+```
+
+### CLI layout
+
+```
+cmd/goceph/
+  main.go
+  root/           # goceph root
+  internal/app/   # shared flags, connection helpers
+  rbd/            # goceph rbd …
+  ceph/
+    rbd/
+      task/       # goceph ceph rbd task …
+  rados/          # goceph rados … (placeholder)
+```
+
+Build:
+
+```bash
+go build -o goceph ./cmd/goceph
+```

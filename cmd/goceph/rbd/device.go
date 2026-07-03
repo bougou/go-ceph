@@ -1,4 +1,4 @@
-package main
+package rbd
 
 import (
 	"context"
@@ -9,34 +9,35 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/bougou/go-ceph/cmd/goceph/internal/app"
 	"github.com/bougou/go-ceph/pkg/krbd"
 	"github.com/bougou/go-ceph/pkg/rados"
-	"github.com/bougou/go-ceph/pkg/rbd"
+	rbdapi "github.com/bougou/go-ceph/pkg/rbd"
 	"github.com/spf13/cobra"
 )
 
-func newDeviceCmd() *cobra.Command {
+func newDeviceCmd(opts *app.Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "device",
 		Short: "Device operations",
 	}
 	cmd.AddCommand(
-		newDeviceListCmd(),
-		newDeviceFindCmd(),
-		newDeviceMapCmd(),
-		newDeviceUnmapCmd(),
+		newDeviceListCmd(opts),
+		newDeviceFindCmd(opts),
+		newDeviceMapCmd(opts),
+		newDeviceUnmapCmd(opts),
 	)
 	return cmd
 }
 
-func newDeviceListCmd() *cobra.Command {
+func newDeviceListCmd(opts *app.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:     "ls",
 		Aliases: []string{"list"},
 		Short:   "List mapped RBD devices",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withoutConn(context.Background(), func() error {
-				devices, err := rbd.RbdDeviceList(context.Background(), nil)
+			return opts.WithoutConn(context.Background(), func() error {
+				devices, err := rbdapi.RbdDeviceList(context.Background(), nil)
 				if err != nil {
 					return err
 				}
@@ -68,14 +69,14 @@ func newDeviceListCmd() *cobra.Command {
 	}
 }
 
-func newDeviceFindCmd() *cobra.Command {
+func newDeviceFindCmd(opts *app.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "find <image-spec|snap-spec>",
 		Short: "Find mapped RBD device by image or snapshot spec",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withoutConn(context.Background(), func() error {
-				device, err := rbd.RbdDeviceFind(context.Background(), nil, args[0])
+			return opts.WithoutConn(context.Background(), func() error {
+				device, err := rbdapi.RbdDeviceFind(context.Background(), nil, args[0])
 				if err != nil {
 					return err
 				}
@@ -105,7 +106,7 @@ func newDeviceFindCmd() *cobra.Command {
 	}
 }
 
-func newDeviceMapCmd() *cobra.Command {
+func newDeviceMapCmd(opts *app.Options) *cobra.Command {
 	var (
 		deviceType string
 		cookie     string
@@ -142,7 +143,7 @@ func newDeviceMapCmd() *cobra.Command {
 				options.Exclusive = true
 			}
 
-			return withConn(context.Background(), func(conn *rados.RadosConn) error {
+			return opts.WithConn(context.Background(), func(conn *rados.RadosConn) error {
 				return conn.RbdDeviceMap(context.Background(), args[0], options)
 			})
 		},
@@ -159,7 +160,7 @@ func newDeviceMapCmd() *cobra.Command {
 	return cmd
 }
 
-func newDeviceUnmapCmd() *cobra.Command {
+func newDeviceUnmapCmd(opts *app.Options) *cobra.Command {
 	var (
 		deviceType string
 		optionsStr string
@@ -186,7 +187,7 @@ func newDeviceUnmapCmd() *cobra.Command {
 				return err
 			}
 
-			return withConn(context.Background(), func(conn *rados.RadosConn) error {
+			return opts.WithConn(context.Background(), func(conn *rados.RadosConn) error {
 				input := strings.TrimSpace(args[0])
 				if devID, ok := parseDeviceIDFromPath(input); ok {
 					return conn.RbdDeviceUnmapByID(context.Background(), devID, unmapOpts)
