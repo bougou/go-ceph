@@ -57,21 +57,23 @@ func (rc *RadosConn) RbdSnapChildren(ctx context.Context, snapSpec rbd.SnapSpec)
 	return
 }
 
-func (rc *RadosConn) RbdClone(ctx context.Context, srcSnapSpec rbd.SnapSpec, dstImageSpec rbd.ImageSpec, optFns ...rbd.RbdImageOptionFn) error {
+func (rc *RadosConn) RbdClone(ctx context.Context, srcSnapSpec rbd.SnapSpec, dstImageSpec rbd.ImageSpec, opts ...rbd.CloneOption) (task *rbd.FlattenTask, err error) {
+	err = rc.Do(ctx, func(conn *cephrados.Conn) error {
+		task, err = rbd.RbdClone(ctx, conn, srcSnapSpec, dstImageSpec, opts...)
+		return err
+	})
+	return
+}
+
+func (rc *RadosConn) RbdCopy(ctx context.Context, srcImageSpec rbd.ImageSpec, dstImageSpec rbd.ImageSpec, opts ...rbd.CopyOption) error {
 	return rc.Do(ctx, func(conn *cephrados.Conn) error {
-		return rbd.RbdClone(ctx, conn, srcSnapSpec, dstImageSpec, optFns...)
+		return rbd.RbdCopy(ctx, conn, srcImageSpec, dstImageSpec, opts...)
 	})
 }
 
-func (rc *RadosConn) RbdCopy(ctx context.Context, srcImageSpec rbd.ImageSpec, dstImageSpec rbd.ImageSpec, optFns ...rbd.RbdImageOptionFn) error {
+func (rc *RadosConn) RbdCopySnap(ctx context.Context, srcSnapSpec rbd.SnapSpec, dstImageSpec rbd.ImageSpec, opts ...rbd.CopyOption) error {
 	return rc.Do(ctx, func(conn *cephrados.Conn) error {
-		return rbd.RbdCopy(ctx, conn, srcImageSpec, dstImageSpec, optFns...)
-	})
-}
-
-func (rc *RadosConn) RbdCopySnap(ctx context.Context, srcSnapSpec rbd.SnapSpec, dstImageSpec rbd.ImageSpec, optFns ...rbd.RbdImageOptionFn) error {
-	return rc.Do(ctx, func(conn *cephrados.Conn) error {
-		return rbd.RbdCopySnap(ctx, conn, srcSnapSpec, dstImageSpec, optFns...)
+		return rbd.RbdCopySnap(ctx, conn, srcSnapSpec, dstImageSpec, opts...)
 	})
 }
 
@@ -81,7 +83,7 @@ func (rc *RadosConn) RbdCopyUnsafe(ctx context.Context, srcImageSpec rbd.ImageSp
 	})
 }
 
-func (rc *RadosConn) RbdCreate(ctx context.Context, imageSpec rbd.ImageSpec, sizeBytes int64, optFns ...rbd.RbdImageOptionFn) error {
+func (rc *RadosConn) RbdCreate(ctx context.Context, imageSpec rbd.ImageSpec, sizeBytes int64, optFns ...rbd.RbdImageOption) error {
 	return rc.Do(ctx, func(conn *cephrados.Conn) error {
 		return rbd.RbdCreate(ctx, conn, imageSpec, sizeBytes, optFns...)
 	})

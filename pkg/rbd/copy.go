@@ -18,7 +18,7 @@ func tempCopySnapName(dstImageName string) (string, error) {
 	return fmt.Sprintf("%s__temp__%s", dstImageName, hex.EncodeToString(suffix[:])), nil
 }
 
-func tempCopyDestImageName(dstImageName string) (string, error) {
+func tempCopyDestName(dstImageName string) (string, error) {
 	var suffix [8]byte
 	if _, err := rand.Read(suffix[:]); err != nil {
 		return "", fmt.Errorf("failed to generate temporary destination image name: %w", err)
@@ -26,45 +26,20 @@ func tempCopyDestImageName(dstImageName string) (string, error) {
 	return fmt.Sprintf("%s__temp__%s", dstImageName, hex.EncodeToString(suffix[:])), nil
 }
 
-func assertDestImageAvailable(ctx context.Context, conn *cephrados.Conn, dstNamespaceName, dstPoolName, dstImageName string) (ImageSpec, error) {
+// withStagedDestImage clones or copies into a temporary destination name, runs
+// fn, then renames it to dstImageName. If fn fails, the temporary image is
+// removed so dstImageName is never left in a partial state.
+func withStagedDestImage(ctx context.Context, conn *cephrados.Conn, dstNamespaceName, dstPoolName, dstImageName string, fn func(dstIOCtx *cephrados.IOContext, tempDestImageName string) error) error {
 	dstImageSpec := NewImageSpecWithNamespace(dstPoolName, dstNamespaceName, dstImageName)
 	exist, err := RbdExist(ctx, conn, dstImageSpec)
 	if err != nil {
-		return "", fmt.Errorf("failed to check destination image (%s): %w", dstImageName, err)
+		return fmt.Errorf("failed to check destination image (%s): %w", dstImageName, err)
 	}
 	if exist {
-		return "", fmt.Errorf("destination image already exists: %s", dstImageSpec)
-	}
-	return dstImageSpec, nil
-}
-
-func removeTempDestImage(dstIOCtx *cephrados.IOContext, tempDestImageName string) {
-	if removeErr := cephrbd.RemoveImage(dstIOCtx, tempDestImageName); removeErr != nil && !isErrNotFound(removeErr) {
-		_ = removeErr
-	}
-}
-
-func renameTempDestImage(dstIOCtx *cephrados.IOContext, tempDestImageName, dstImageName string) error {
-	tempImage, err := cephrbd.OpenImage(dstIOCtx, tempDestImageName, cephrbd.NoSnapshot)
-	if err != nil {
-		return fmt.Errorf("failed to open temporary destination image (%s): %w", tempDestImageName, err)
-	}
-	defer tempImage.Close()
-
-	if err := tempImage.Rename(dstImageName); err != nil {
-		return fmt.Errorf("failed to rename temporary destination image (%s) to (%s): %w", tempDestImageName, dstImageName, err)
-	}
-	return nil
-}
-
-// withStagedDestImage copies into a temporary destination image, then renames it
-// to dstImageName on success. The temporary image is removed when fn returns an error.
-func withStagedDestImage(ctx context.Context, conn *cephrados.Conn, dstNamespaceName, dstPoolName, dstImageName string, fn func(dstIOCtx *cephrados.IOContext, tempDestImageName string) error) error {
-	if _, err := assertDestImageAvailable(ctx, conn, dstNamespaceName, dstPoolName, dstImageName); err != nil {
-		return err
+		return fmt.Errorf("destination image already exists: %s", dstImageSpec)
 	}
 
-	tempDestImageName, err := tempCopyDestImageName(dstImageName)
+	tempDestImageName, err := tempCopyDestName(dstImageName)
 	if err != nil {
 		return err
 	}
@@ -80,7 +55,9 @@ func withStagedDestImage(ctx context.Context, conn *cephrados.Conn, dstNamespace
 	finalized := false
 	defer func() {
 		if !finalized {
-			removeTempDestImage(dstIOCtx, tempDestImageName)
+			if removeErr := cephrbd.RemoveImage(dstIOCtx, tempDestImageName); removeErr != nil && !isErrNotFound(removeErr) {
+				_ = removeErr
+			}
 		}
 	}()
 
@@ -88,61 +65,28 @@ func withStagedDestImage(ctx context.Context, conn *cephrados.Conn, dstNamespace
 		return err
 	}
 
-	if err := renameTempDestImage(dstIOCtx, tempDestImageName, dstImageName); err != nil {
-		return err
+	tempImage, err := cephrbd.OpenImage(dstIOCtx, tempDestImageName, cephrbd.NoSnapshot)
+	if err != nil {
+		return fmt.Errorf("failed to open temporary destination image (%s): %w", tempDestImageName, err)
+	}
+	defer tempImage.Close()
+
+	if err := tempImage.Rename(dstImageName); err != nil {
+		return fmt.Errorf("failed to rename temporary destination image (%s) to (%s): %w", tempDestImageName, dstImageName, err)
 	}
 	finalized = true
 	return nil
 }
 
-// withTempCopySnapshot creates a temporary source snapshot for copy, protects it,
-// then removes and unprotects it after fn returns.
-func withTempCopySnapshot(srcImage *cephrbd.Image, dstImageName string, fn func(tempSnapName string) error) error {
-	tempSnapName, err := tempCopySnapName(dstImageName)
-	if err != nil {
-		return err
-	}
-
-	tempSnap, err := srcImage.CreateSnapshot(tempSnapName)
-	if err != nil {
-		return fmt.Errorf("failed to create snapshot (%s): %w", tempSnapName, err)
-	}
-
-	isProtected, err := tempSnap.IsProtected()
-	if err != nil {
-		return fmt.Errorf("failed to check protection for snapshot (%s): %w", tempSnapName, err)
-	}
-	if !isProtected {
-		if err := tempSnap.Protect(); err != nil {
-			return fmt.Errorf("failed to protect snapshot (%s): %w", tempSnapName, err)
-		}
-	}
-
-	defer func() {
-		_ = tempSnap.Unprotect()
-		_ = tempSnap.Remove()
-	}()
-
-	return fn(tempSnapName)
-}
-
-func flattenImage(dstIOCtx *cephrados.IOContext, imageName string) error {
-	image, err := cephrbd.OpenImage(dstIOCtx, imageName, cephrbd.NoSnapshot)
-	if err != nil {
-		return fmt.Errorf("failed to open image (%s): %w", imageName, err)
-	}
-	defer image.Close()
-
-	if err := image.Flatten(); err != nil {
-		return fmt.Errorf("failed to flatten image (%s): %w", imageName, err)
-	}
-	return nil
-}
-
-// RbdCopy copies a source image to a new independent image with point-in-time consistency.
-// It creates a temporary snapshot on the source, clones from that snapshot, flattens the
-// clone, then removes the temporary snapshot.
-func RbdCopy(ctx context.Context, conn *cephrados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
+// RbdCopy copies a source image to a new image with point-in-time consistency.
+// It creates a temporary snapshot on the source, clones into a temporary
+// destination image, flattens synchronously, renames to dstImageSpec, then
+// removes the temporary snapshot.
+//
+// On success the destination is independent and only becomes visible at
+// dstImageSpec after flatten completes. On failure dstImageSpec is not created.
+func RbdCopy(ctx context.Context, conn *cephrados.Conn, srcImageSpec ImageSpec, dstImageSpec ImageSpec, opts ...CopyOption) error {
+	cfg := copyConfigFrom(opts...)
 	srcNamespaceName, srcPoolName, srcImageName, err := Image(string(srcImageSpec))
 	if err != nil {
 		return err
@@ -170,28 +114,58 @@ func RbdCopy(ctx context.Context, conn *cephrados.Conn, srcImageSpec ImageSpec, 
 	}
 	defer srcImage.Close()
 
-	imageOpts, err := rbdImageOptionsFromFns(optFns...)
+	imageOpts, err := rbdImageOptions(cfg.imageOptions...)
 	if err != nil {
 		return fmt.Errorf("failed to build image options: %w", err)
 	}
 	defer imageOpts.Destroy()
 
-	return withTempCopySnapshot(srcImage, dstImageName, func(tempSnapName string) error {
-		return withStagedDestImage(ctx, conn, dstNamespaceName, dstPoolName, dstImageName, func(dstIOCtx *cephrados.IOContext, tempDestImageName string) error {
-			if err := cephrbd.CloneFromImage(srcImage, tempSnapName, dstIOCtx, tempDestImageName, imageOpts); err != nil {
-				return fmt.Errorf("failed to clone temporary destination image (%s) from snapshot (%s): %w", tempDestImageName, tempSnapName, err)
-			}
-			return flattenImage(dstIOCtx, tempDestImageName)
-		})
+	tempSnapName, err := tempCopySnapName(dstImageName)
+	if err != nil {
+		return err
+	}
+
+	tempSnap, err := srcImage.CreateSnapshot(tempSnapName)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot (%s): %w", tempSnapName, err)
+	}
+
+	isProtected, err := tempSnap.IsProtected()
+	if err != nil {
+		return fmt.Errorf("failed to check protection for snapshot (%s): %w", tempSnapName, err)
+	}
+	if !isProtected {
+		if err := tempSnap.Protect(); err != nil {
+			return fmt.Errorf("failed to protect snapshot (%s): %w", tempSnapName, err)
+		}
+	}
+
+	// Remove the temporary snapshot only after the destination no longer depends
+	// on it: flattened on success, or removed by withStagedDestImage on failure.
+	err = withStagedDestImage(ctx, conn, dstNamespaceName, dstPoolName, dstImageName, func(dstIOCtx *cephrados.IOContext, tempDestImageName string) error {
+		if err := cephrbd.CloneFromImage(srcImage, tempSnapName, dstIOCtx, tempDestImageName, imageOpts); err != nil {
+			return fmt.Errorf("failed to clone temporary destination image (%s) from snapshot (%s): %w", tempDestImageName, tempSnapName, err)
+		}
+		return flattenImage(dstIOCtx, tempDestImageName)
 	})
+
+	_ = tempSnap.Unprotect()
+	_ = tempSnap.Remove()
+	return err
 }
 
-// RbdCopySnap copies an existing snapshot to a new independent image by cloning from
-// the snapshot and flattening the clone.
-func RbdCopySnap(ctx context.Context, conn *cephrados.Conn, srcSnapSpec SnapSpec, dstImageSpec ImageSpec, optFns ...RbdImageOptionFn) error {
+// RbdCopySnap copies an existing snapshot to a new image by cloning into a
+// temporary destination, flattening synchronously, then renaming to dstImageSpec.
+//
+// On success the destination is independent and only becomes visible at
+// dstImageSpec after flatten completes. On failure dstImageSpec is not created.
+// The source snapshot is left protected.
+func RbdCopySnap(ctx context.Context, conn *cephrados.Conn, srcSnapSpec SnapSpec, dstImageSpec ImageSpec, opts ...CopyOption) error {
 	if !srcSnapSpec.Valid() {
 		return fmt.Errorf("invalid source snapshot spec: %s", srcSnapSpec)
 	}
+
+	cfg := copyConfigFrom(opts...)
 
 	srcNamespaceName, srcPoolName, srcImageName, srcSnapName, err := Snap(string(srcSnapSpec))
 	if err != nil {
@@ -217,25 +191,17 @@ func RbdCopySnap(ctx context.Context, conn *cephrados.Conn, srcSnapSpec SnapSpec
 	defer srcImage.Close()
 
 	snap := srcImage.GetSnapshot(srcSnapName)
-
 	isProtected, err := snap.IsProtected()
 	if err != nil {
 		return fmt.Errorf("failed to check protection for snapshot (%s): %w", srcSnapName, err)
 	}
-	protectedByUs := false
 	if !isProtected {
 		if err := snap.Protect(); err != nil {
 			return fmt.Errorf("failed to protect snapshot (%s): %w", srcSnapName, err)
 		}
-		protectedByUs = true
-	}
-	if protectedByUs {
-		defer func() {
-			_ = snap.Unprotect()
-		}()
 	}
 
-	imageOpts, err := rbdImageOptionsFromFns(optFns...)
+	imageOpts, err := rbdImageOptions(cfg.imageOptions...)
 	if err != nil {
 		return fmt.Errorf("failed to build image options: %w", err)
 	}

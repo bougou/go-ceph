@@ -8,7 +8,7 @@ import (
 	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
-func RbdCreate(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec, sizeBytes int64, optFns ...RbdImageOptionFn) error {
+func RbdCreate(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec, sizeBytes int64, optFns ...RbdImageOption) error {
 	namespaceName, poolName, imageName, err := Image(string(imageSpec))
 	if err != nil {
 		return err
@@ -22,7 +22,7 @@ func RbdCreate(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec, s
 
 	ioctx.SetNamespace(namespaceName)
 
-	imageOpts, err := rbdImageOptionsFromFns(optFns...)
+	imageOpts, err := rbdImageOptions(optFns...)
 	if err != nil {
 		return fmt.Errorf("failed to build image options: %w", err)
 	}

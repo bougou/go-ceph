@@ -24,6 +24,7 @@ func newCopyCmd(opts *app.Options) *cobra.Command {
 				if unsafe {
 					return conn.RbdCopyUnsafe(context.Background(), rbdapi.ImageSpec(args[0]), dstImageSpec)
 				}
+
 				if strings.Contains(args[0], "@") {
 					return conn.RbdCopySnap(context.Background(), rbdapi.SnapSpec(args[0]), dstImageSpec)
 				}
