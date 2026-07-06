@@ -17,3 +17,7 @@ var ErrPlatformNotSupported = errors.New("RBD is not supported on this platform"
 func isErrNotFound(err error) bool {
 	return errors.Is(err, cephrbd.ErrNotFound) || errors.Is(err, cephrbd.ErrNotExist) || errors.Is(err, cephrbd.RbdErrorNotFound)
 }
+
+func isErrExist(err error) bool {
+	return errors.Is(err, cephrbd.ErrExist)
+}
