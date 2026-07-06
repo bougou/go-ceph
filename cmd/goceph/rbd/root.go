@@ -26,6 +26,7 @@ func NewCmd(opts *app.Options) *cobra.Command {
 		newCloneCmd(opts),
 		newChildrenCmd(opts),
 		newParentCmd(opts),
+		newMigrationCmd(opts),
 		newSnapCmd(opts),
 		newDeviceCmd(opts),
 	)
