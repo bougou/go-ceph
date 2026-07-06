@@ -40,7 +40,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	conn, err := rados.NewRadosConn("", false)
+	conn, err := rados.NewRadosConn("")
 	if err != nil {
 		log.Fatal(err)
 	}

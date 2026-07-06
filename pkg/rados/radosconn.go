@@ -21,28 +21,14 @@ type RadosConn struct {
 // NewRadosConn creates a RADOS connection wrapper.
 //
 // cephConfFile is the Ceph config file path; if empty, the default config is used.
-//
-// If lazy is false, the config is loaded and the connection is created immediately.
-// If lazy is true, config loading and connection creation are deferred until the
-// first Connect or Do call.
-//
-// When lazy is false, an error may be returned if config loading fails.
-// When lazy is true, this constructor always returns a nil error.
-func NewRadosConn(cephConfFile string, lazy bool) (rc *RadosConn, err error) {
-	var conn *cephrados.Conn = nil
-
-	if !lazy {
-		var newConn *cephrados.Conn
-		newConn, err = newRadosConn(cephConfFile)
-		if err != nil {
-			err = fmt.Errorf("failed to create rados connection: %w", err)
-			return
-		}
-		conn = newConn
+// The config is loaded and the connection object is created immediately.
+func NewRadosConn(cephConfFile string) (rc *RadosConn, err error) {
+	conn, err := newRadosConn(cephConfFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create rados connection: %w", err)
 	}
 
-	rc = &RadosConn{conn: conn, cephConfFile: cephConfFile}
-	return
+	return &RadosConn{conn: conn, cephConfFile: cephConfFile}, nil
 }
 
 func (rc *RadosConn) WithRetries(retries int) *RadosConn {
@@ -95,6 +81,25 @@ func (rc *RadosConn) Reconnect() error {
 	rc.mu.Unlock()
 
 	return rc.Connect()
+}
+
+// Test connects to the cluster and verifies the connection is working.
+func (rc *RadosConn) Test() error {
+	if err := rc.Connect(); err != nil {
+		return fmt.Errorf("failed to connect to cluster: %w", err)
+	}
+
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	if rc.conn == nil {
+		return fmt.Errorf("rados connection is not established")
+	}
+
+	if _, err := rc.conn.GetClusterStats(); err != nil {
+		return fmt.Errorf("failed to verify cluster connection: %w", err)
+	}
+	return nil
 }
 
 // ensureConnected checks connection health and reconnects if necessary.

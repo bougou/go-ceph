@@ -22,7 +22,7 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 
 // WithConn runs fn with a RADOS connection.
 func (o *Options) WithConn(ctx context.Context, fn func(*rados.RadosConn) error) error {
-	conn, err := rados.NewRadosConn(o.CephConf, false)
+	conn, err := rados.NewRadosConn(o.CephConf)
 	if err != nil {
 		return fmt.Errorf("failed to create rados connection: %w", err)
 	}

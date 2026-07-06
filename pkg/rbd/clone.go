@@ -11,10 +11,9 @@ import (
 // RbdClone clones a snapshot to a new image in the same pool and namespace.
 //
 // Use CloneWithAutoFlattenDepth to submit a background flatten task when parent
-// depth exceeds a threshold (depth > n; n=0 always flattens). CloneWithoutAutoFlatten
-// disables auto-flatten (the default when no
-// option is passed). The call returns immediately after clone (and task submission
-// if triggered); it does not wait for flatten or clean up snapshots.
+// depth exceeds a threshold (depth > n; n=0 always flattens).
+// CloneWithoutAutoFlatten disables auto-flatten (the default when no option is passed).
+// The call returns immediately after clone (and task submission if triggered); it does not wait for flatten to finish.
 // Returns a non-nil FlattenTask when a flatten task is submitted.
 func RbdClone(ctx context.Context, conn *cephrados.Conn, srcSnapSpec SnapSpec, dstImageSpec ImageSpec, opts ...CloneOption) (*FlattenTask, error) {
 	cfg, err := cloneConfigFrom(opts...)
