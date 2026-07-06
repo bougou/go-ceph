@@ -243,14 +243,10 @@ func (rc *RadosConn) RbdListLong(ctx context.Context, poolSpec rbd.PoolSpec) (en
 	return
 }
 
-func (rc *RadosConn) RbdStatus(ctx context.Context, imageOrSnapSpec string) (watchers []cephrbd.ImageWatcher, err error) {
+func (rc *RadosConn) RbdStatus(ctx context.Context, imageOrSnapSpec string) (status *rbd.ImageStatus, err error) {
 	err = rc.Do(ctx, func(conn *cephrados.Conn) error {
-		_watchers, err := rbd.RbdStatus(ctx, conn, imageOrSnapSpec)
-		if err != nil {
-			return err
-		}
-		watchers = _watchers
-		return nil
+		status, err = rbd.RbdStatus(ctx, conn, imageOrSnapSpec)
+		return err
 	})
 	return
 }
