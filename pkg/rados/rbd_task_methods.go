@@ -31,6 +31,30 @@ func (rc *RadosConn) RbdTaskAddTrashRemove(ctx context.Context, imageIDSpec rbd.
 	return
 }
 
+func (rc *RadosConn) RbdTaskAddMigrationExecute(ctx context.Context, imageSpec rbd.ImageSpec) (task rbd.TaskResponse, err error) {
+	err = rc.Do(ctx, func(conn *cephrados.Conn) error {
+		task, err = rbd.RbdTaskAddMigrationExecute(ctx, conn, imageSpec)
+		return err
+	})
+	return
+}
+
+func (rc *RadosConn) RbdTaskAddMigrationCommit(ctx context.Context, imageSpec rbd.ImageSpec) (task rbd.TaskResponse, err error) {
+	err = rc.Do(ctx, func(conn *cephrados.Conn) error {
+		task, err = rbd.RbdTaskAddMigrationCommit(ctx, conn, imageSpec)
+		return err
+	})
+	return
+}
+
+func (rc *RadosConn) RbdTaskAddMigrationAbort(ctx context.Context, imageSpec rbd.ImageSpec) (task rbd.TaskResponse, err error) {
+	err = rc.Do(ctx, func(conn *cephrados.Conn) error {
+		task, err = rbd.RbdTaskAddMigrationAbort(ctx, conn, imageSpec)
+		return err
+	})
+	return
+}
+
 func (rc *RadosConn) RbdTaskList(ctx context.Context) (tasks []rbd.TaskResponse, err error) {
 	err = rc.Do(ctx, func(conn *cephrados.Conn) error {
 		tasks, err = rbd.RbdTaskList(ctx, conn)

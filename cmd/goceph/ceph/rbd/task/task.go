@@ -34,6 +34,7 @@ func newAddCmd(opts *app.Options) *cobra.Command {
 		newAddFlattenCmd(opts),
 		newAddRemoveCmd(opts),
 		newAddTrashRemoveCmd(opts),
+		newAddMigrationCmd(opts),
 	)
 	return cmd
 }

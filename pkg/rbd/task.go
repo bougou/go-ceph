@@ -2,6 +2,7 @@ package rbd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	cephrados "github.com/ceph/go-ceph/rados"
@@ -148,4 +149,73 @@ func RbdTaskCancel(ctx context.Context, conn *cephrados.Conn, taskID string) (Ta
 		return TaskResponse{}, fmt.Errorf("failed to cancel rbd task (%s): %w", taskID, err)
 	}
 	return taskResponseFromAdmin(tr), nil
+}
+
+// RbdTaskAddMigrationExecute submits a background migration execute task.
+// Equivalent to: rbd task add migration execute <image-spec>
+func RbdTaskAddMigrationExecute(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) (TaskResponse, error) {
+	return taskAdminAdd(conn, "rbd task add migration execute", imageSpec)
+}
+
+// RbdTaskAddMigrationCommit submits a background migration commit task.
+// Equivalent to: rbd task add migration commit <image-spec>
+func RbdTaskAddMigrationCommit(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) (TaskResponse, error) {
+	return taskAdminAdd(conn, "rbd task add migration commit", imageSpec)
+}
+
+// RbdTaskAddMigrationAbort submits a background migration abort task.
+// Equivalent to: rbd task add migration abort <image-spec>
+func RbdTaskAddMigrationAbort(ctx context.Context, conn *cephrados.Conn, imageSpec ImageSpec) (TaskResponse, error) {
+	return taskAdminAdd(conn, "rbd task add migration abort", imageSpec)
+}
+
+// taskAdminAdd submits an mgr "rbd task add ..." command using the same JSON
+// protocol as cephadmin.TaskAdmin. Used for task types not yet exposed by
+// github.com/ceph/go-ceph (e.g. migration execute/commit/abort).
+func taskAdminAdd(conn *cephrados.Conn, prefix string, imageSpec ImageSpec) (TaskResponse, error) {
+	if err := validateTaskImageSpec(imageSpec); err != nil {
+		return TaskResponse{}, err
+	}
+
+	tr, err := mgrTaskCommand(conn, map[string]string{
+		"prefix":     prefix,
+		"image_spec": mgrImageSpecString(imageSpec),
+		"format":     "json",
+	})
+	if err != nil {
+		return TaskResponse{}, fmt.Errorf("failed to add task for image (%s): %w", imageSpec, err)
+	}
+	return taskResponseFromAdmin(tr), nil
+}
+
+func mgrImageSpecString(spec ImageSpec) string {
+	pool, namespace, image := spec.Pool(), spec.Namespace(), spec.Image()
+	if pool != "" && namespace != "" {
+		return fmt.Sprintf("%s/%s/%s", pool, namespace, image)
+	}
+	if pool != "" {
+		return fmt.Sprintf("%s/%s", pool, image)
+	}
+	return image
+}
+
+func mgrTaskCommand(conn *cephrados.Conn, cmd map[string]string) (cephadmin.TaskResponse, error) {
+	payload, err := json.Marshal(cmd)
+	if err != nil {
+		return cephadmin.TaskResponse{}, fmt.Errorf("failed to marshal mgr command: %w", err)
+	}
+
+	body, status, err := conn.MgrCommand([][]byte{payload})
+	if err != nil {
+		return cephadmin.TaskResponse{}, err
+	}
+	if status != "" {
+		return cephadmin.TaskResponse{}, fmt.Errorf("%s", status)
+	}
+
+	var tr cephadmin.TaskResponse
+	if err := json.Unmarshal(body, &tr); err != nil {
+		return cephadmin.TaskResponse{}, fmt.Errorf("failed to parse task response: %w", err)
+	}
+	return tr, nil
 }
