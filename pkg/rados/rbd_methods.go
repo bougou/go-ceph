@@ -171,6 +171,12 @@ func (rc *RadosConn) RbdRemove(ctx context.Context, imageSpec rbd.ImageSpec) err
 	})
 }
 
+func (rc *RadosConn) RbdForceRemove(ctx context.Context, imageSpec rbd.ImageSpec) error {
+	return rc.Do(ctx, func(conn *cephrados.Conn) error {
+		return rbd.RbdForceRemove(ctx, conn, imageSpec)
+	})
+}
+
 func (rc *RadosConn) RbdRename(ctx context.Context, srcImageSpec rbd.ImageSpec, dstImageSpec rbd.ImageSpec) error {
 	return rc.Do(ctx, func(conn *cephrados.Conn) error {
 		return rbd.RbdRename(ctx, conn, srcImageSpec, dstImageSpec)
