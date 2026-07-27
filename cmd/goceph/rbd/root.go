@@ -18,6 +18,7 @@ func NewCmd(opts *app.Options) *cobra.Command {
 		newListCmd(opts),
 		newInfoCmd(opts),
 		newStatusCmd(opts),
+		newImageMetaCmd(opts),
 		newRemoveCmd(opts),
 		newRenameCmd(opts),
 		newResizeCmd(opts),

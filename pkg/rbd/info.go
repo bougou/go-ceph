@@ -96,6 +96,11 @@ type ImageInfo struct {
 	Overlap uint64 `json:"overlap,omitempty,omitzero"`
 }
 
+// ByteSizeHuman formats a byte size into a human-readable string (e.g., "20 GiB").
+func ByteSizeHuman(size uint64) string {
+	return sizeHuman(size, 0)
+}
+
 // sizeHuman formats a byte size into a human-readable string with appropriate units (e.g., "20 GiB").
 // precision is the number of decimal places to show; zero means no fractional part.
 func sizeHuman(size uint64, precision int) string {

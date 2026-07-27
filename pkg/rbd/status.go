@@ -2,17 +2,114 @@ package rbd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	cephrados "github.com/ceph/go-ceph/rados"
 	cephrbd "github.com/ceph/go-ceph/rbd"
 )
 
+// featureDirtyCache is RBD_FEATURE_DIRTY_CACHE (1<<14). Not yet exported by
+// github.com/ceph/go-ceph.
+const featureDirtyCache uint64 = 1 << 14
+
 // ImageStatus is the result of "rbd status".
 type ImageStatus struct {
-	Watchers  []cephrbd.ImageWatcher `json:"watchers"`
-	Migration *ImageStatusMigration  `json:"migration,omitempty"`
+	Watchers        []cephrbd.ImageWatcher `json:"watchers"`
+	Migration       *ImageStatusMigration  `json:"migration,omitempty"`
+	PersistentCache *PersistentCacheState  `json:"persistent_cache,omitempty"`
+}
+
+// PersistentCacheState is the persistent write-back cache section of "rbd status".
+type PersistentCacheState struct {
+	Host           string    `json:"host"`
+	Path           string    `json:"path"`
+	Size           uint64    `json:"size"`
+	Mode           string    `json:"mode"`
+	StatsTimestamp time.Time `json:"stats_timestamp"`
+	Present        bool      `json:"present"`
+	Empty          bool      `json:"empty"`
+	Clean          bool      `json:"clean"`
+	AllocatedBytes uint64    `json:"allocated_bytes"`
+	CachedBytes    uint64    `json:"cached_bytes"`
+	DirtyBytes     uint64    `json:"dirty_bytes"`
+	FreeBytes      uint64    `json:"free_bytes"`
+	HitsFull       uint64    `json:"hits_full"`
+	HitsPartial    uint64    `json:"hits_partial"`
+	Misses         uint64    `json:"misses"`
+	HitBytes       uint64    `json:"hit_bytes"`
+	MissBytes      uint64    `json:"miss_bytes"`
+}
+
+// UnmarshalJSON decodes librbd persistent-cache metadata JSON, where
+// stats_timestamp is a unix-seconds integer.
+func (c *PersistentCacheState) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Host           string `json:"host"`
+		Path           string `json:"path"`
+		Size           uint64 `json:"size"`
+		Mode           string `json:"mode"`
+		StatsTimestamp uint64 `json:"stats_timestamp"`
+		Present        bool   `json:"present"`
+		Empty          bool   `json:"empty"`
+		Clean          bool   `json:"clean"`
+		AllocatedBytes uint64 `json:"allocated_bytes"`
+		CachedBytes    uint64 `json:"cached_bytes"`
+		DirtyBytes     uint64 `json:"dirty_bytes"`
+		FreeBytes      uint64 `json:"free_bytes"`
+		HitsFull       uint64 `json:"hits_full"`
+		HitsPartial    uint64 `json:"hits_partial"`
+		Misses         uint64 `json:"misses"`
+		HitBytes       uint64 `json:"hit_bytes"`
+		MissBytes      uint64 `json:"miss_bytes"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*c = PersistentCacheState{
+		Host:           raw.Host,
+		Path:           raw.Path,
+		Size:           raw.Size,
+		Mode:           raw.Mode,
+		StatsTimestamp: time.Unix(int64(raw.StatsTimestamp), 0),
+		Present:        raw.Present,
+		Empty:          raw.Empty,
+		Clean:          raw.Clean,
+		AllocatedBytes: raw.AllocatedBytes,
+		CachedBytes:    raw.CachedBytes,
+		DirtyBytes:     raw.DirtyBytes,
+		FreeBytes:      raw.FreeBytes,
+		HitsFull:       raw.HitsFull,
+		HitsPartial:    raw.HitsPartial,
+		Misses:         raw.Misses,
+		HitBytes:       raw.HitBytes,
+		MissBytes:      raw.MissBytes,
+	}
+	return nil
+}
+
+// HitsFullPercent returns full-hit percentage of total read ops.
+func (c *PersistentCacheState) HitsFullPercent() int {
+	return percentage(c.HitsFull, c.HitsFull+c.HitsPartial+c.Misses)
+}
+
+// HitsPartialPercent returns partial-hit percentage of total read ops.
+func (c *PersistentCacheState) HitsPartialPercent() int {
+	return percentage(c.HitsPartial, c.HitsFull+c.HitsPartial+c.Misses)
+}
+
+// HitBytesPercent returns hit-bytes percentage of total read bytes.
+func (c *PersistentCacheState) HitBytesPercent() int {
+	return percentage(c.HitBytes, c.HitBytes+c.MissBytes)
+}
+
+func percentage(part, whole uint64) int {
+	if whole == 0 {
+		return 0
+	}
+	return int(100 * part / whole)
 }
 
 // ImageStatusMigration contains migration details when the image has
@@ -146,7 +243,39 @@ func readImageMigrationStatus(
 	return buildImageStatusMigration(conn, raw, sourceSpec), nil
 }
 
-// RbdStatus returns watchers and migration status for an image or snapshot.
+func readPersistentCacheState(image *cephrbd.Image) (*PersistentCacheState, error) {
+	features, err := image.GetFeatures()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get image features: %w", err)
+	}
+	if features&featureDirtyCache == 0 {
+		return nil, nil
+	}
+
+	raw, err := image.GetMetadata(PersistentCacheStateKey)
+	if err != nil {
+		if isErrNotFound(err) {
+			return nil, nil
+		}
+		// Match official rbd status: metadata get failure is not fatal.
+		return nil, nil
+	}
+	return parsePersistentCacheState(raw), nil
+}
+
+func parsePersistentCacheState(raw string) *PersistentCacheState {
+	if raw == "" {
+		return nil
+	}
+	var state PersistentCacheState
+	if err := json.Unmarshal([]byte(raw), &state); err != nil {
+		// Match official rbd status: parse failure is not fatal.
+		return nil
+	}
+	return &state
+}
+
+// RbdStatus returns watchers, migration status, and persistent cache state.
 // Equivalent to: rbd status <image-or-snap-spec>
 func RbdStatus(ctx context.Context, conn *cephrados.Conn, imageOrSnapSpec string) (*ImageStatus, error) {
 	namespaceName, poolName, imageName, snapshotName, err := ImageOrSnap(imageOrSnapSpec)
@@ -186,6 +315,12 @@ func RbdStatus(ctx context.Context, conn *cephrados.Conn, imageOrSnapSpec string
 		return nil, err
 	}
 	status.Migration = migration
+
+	cache, err := readPersistentCacheState(image)
+	if err != nil {
+		return nil, err
+	}
+	status.PersistentCache = cache
 
 	return status, nil
 }

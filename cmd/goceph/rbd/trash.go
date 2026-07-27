@@ -163,7 +163,7 @@ func renderTrashListLongPlain(w io.Writer, entries []rbdapi.Trash) error {
 }
 
 type xmlTrashList struct {
-	XMLName xml.Name            `xml:"trash"`
+	XMLName xml.Name       `xml:"trash"`
 	Entries []rbdapi.Trash `xml:"image"`
 }
 
